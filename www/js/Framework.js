@@ -26,12 +26,10 @@ class GameWorld
     this.renderSprites = new Array();
     this.interval = 0;
     this.collisionGrid = null;
-    //this.gravity = 0;
     this.events =
     {
       onKeyUp:null,
-      onKeyDown:null//,
-      //onMouseDown:null
+      onKeyDown:null
     };
     this.timers = [];
 
@@ -64,42 +62,8 @@ class GameWorld
         }
       });
     });
-    /*
-    this.canvas.onmousedown = (event) =>
-    {
-      let position = this.getMousePos(event);
-      this.renderSprites.some((renderSprite) =>
-      {
-        if(renderSprite.events.onMouseDown &&
-            position.x > (renderSprite.centre.x - (renderSprite.scale.x *
-            (renderSprite.width / 2))) && position.x <
-            (renderSprite.centre.x  + (renderSprite.scale.x *
-            (renderSprite.width / 2))) &&
-            position.y > (renderSprite.centre.y - (renderSprite.scale.y *
-            ((renderSprite.height / 2)))) && position.y <
-            (renderSprite.centre.y + (renderSprite.scale.y *
-            (renderSprite.height / 2))))
-        {
-          //sprite clicked
-          renderSprite.events.onMouseDown(position);
-          return true;
-        }
-      });
-    };
-    */
 
   }
-  /*
-  getMousePos(event)
-  {
-    let rect = this.canvas.getBoundingClientRect();
-    let canvasStyleHeight = parseFloat(this.canvas.style.height.substring(0, this.canvas.style.height.length - 2));
-    let canvasStyleWidth = parseFloat(this.canvas.style.width.substring(0, this.canvas.style.width.length - 2));
-    let scaleX = canvasStyleWidth / this.canvas.width;
-    let scaleY = canvasStyleHeight / this.canvas.height;
-    return new Point((event.clientX / scaleX) - rect.left, (event.clientY / scaleY) - rect.top);
-  }
-  */
   start()
   {
     this.interval = setInterval(this.render.bind(this), 16.666);
@@ -206,6 +170,11 @@ class GameWorld
           insideCameraDynamicIsoChildren.push(dynamicIsoChild);
         }
       });
+      insideCameraDynamicIsoChildren.forEach((dynamicIsoChild) =>
+      {
+        let childIndex = ArrayFunctions.FindObjectIndex(isoMap.frontSidesLayers.children, dynamicIsoChild);
+        isoMap.frontSidesLayers.children.splice(childIndex, 1);
+      });
       insideCameraDynamicIsoChildren.sort(function (a, b)
       {
         return a.position.x - b.position.x;
@@ -213,23 +182,39 @@ class GameWorld
       insideCameraDynamicIsoChildren.forEach((sprite) =>
       {
         //depth sorting stuff
+        let sortZ = (sprite, index, children) =>
+        {
+          do
+          {
+            if(index > 0)
+            {
+              index --;
+            }
+            else
+            {
+              break;
+            }
+          }while(children[index].frame && children[index].isoZ > sprite.isoZ)
+          if(!children[index].frame)
+          {
+            index ++;
+          }
+          return index;
+        }
         let count1 = 0;
         let count2 = 0;
         let done = false;
 
         let insertIndex = Math.floor((sprite.position.y) / this.tileSize) +
             Math.floor((sprite.position.y + sprite.height) / this.tileSize) + 1;
-
-        let spriteIndex = ArrayFunctions.FindObjectIndex(isoMap.frontSidesLayers.children, sprite);
-        isoMap.frontSidesLayers.children.splice(spriteIndex, 1);
-
         do
         {
           if(!isoMap.frontSidesLayers.children[count1].frame)
           {
             if(count2 === insertIndex)
             {
-              isoMap.frontSidesLayers.children.splice(count1, 0, sprite);
+              isoMap.frontSidesLayers.children.splice(
+                  sortZ(sprite,count1,isoMap.frontSidesLayers.children), 0, sprite);
               done = true;
             }
             else
@@ -240,84 +225,12 @@ class GameWorld
           count1 ++;
         }while(!done)
       });
-      /*
-      for(let i = 0; i < isoMap.frontSidesLayers.children.length; i++)
-      {
-        let child = isoMap.frontSidesLayers.children[i];
-        if(child.frame)
-        {
-          let count = 1;
-          let done = done;
-          let toSort = [child];
-          while(count + index < isoMap.frontSidesLayers.children.length && !done)
-          {
-            let nextChild = isoMap.frontSidesLayers.children[count];
-            if(nextChild.frame)
-            {
-              toSort.push(nextChild)
-              count ++;
-            }
-            else
-            {
-              done = true
-            }
-          }
-          if(toSort.length > 1)
-          {
-
-          }
-        }
-      }
-      */
     });
     this.calcRenderOrder();
-
-    /*
-    this.isoTilemaps.forEach((isoMap) =>
-    {
-      let sprite = isoMap.dynamicIsoChildren[0];
-      let wallSprite = ArrayFunctions.FindObject(isoMap.layer1WallSprites, true, (wallSprite) =>
-      {
-        let found = false;
-        if(wallSprite.position.x < sprite.position.x && wallSprite.position.x + wallSprite.width > sprite.position.x &&
-            wallSprite.position.y + wallSprite.height > sprite.position.y)
-        {
-          found = true;
-        }
-        return found;
-      });
-      let spriteIndex = ArrayFunctions.FindObjectIndex(isoMap.layer1.children, sprite);
-      isoMap.layer1.children.splice(spriteIndex, 1);
-      let wallSpriteIndex = ArrayFunctions.FindObjectIndex(isoMap.layer1.children, wallSprite);
-      isoMap.layer1.children.splice(wallSpriteIndex, 0, sprite);
-
-      this.calcRenderOrder();
-    });
-    */
-
     this.renderSprites.forEach((renderSprite) =>
     {
-
-      //let isoTranX = 0;
-      //let isoTranY = 0;
       let tranX = ((renderSprite.worldAttribs.worldPosition.x + renderSprite.width * 0.5) -this.camera.position.x);
       let tranY = ((renderSprite.worldAttribs.worldPosition.y + renderSprite.height * 0.5) -this.camera.position.y);
-      //this.ctx.translate(tranX, tranY);
-
-      /*
-      if(renderSprite.isometric)
-      {
-        isoTranX = ((renderSprite.worldAttribs.worldPosition.y + renderSprite.height * 0.5) / this.tileSize) * this.isometricProperties.xOffsetPerTile;
-        isoTranY = ((renderSprite.worldAttribs.worldPosition.y + renderSprite.height * 0.5) / this.tileSize) * this.isometricProperties.yOffsetPerTile;
-        renderSprite.isoTranX = isoTranX;
-        renderSprite.isoTranY = isoTranY;
-      }
-      */
-
-      /*if(renderSprite.worldAttribs.worldPosition.x + renderSprite.width - this.isometricProperties.xOffsetPerTile + renderSprite.isoTranX > this.camera.position.x &&
-          renderSprite.worldAttribs.worldPosition.x + renderSprite.isoTranX < this.camera.position.x + this.camera.width &&
-          renderSprite.worldAttribs.worldPosition.y + renderSprite.height - this.isometricProperties.yOffsetPerTile + renderSprite.isoTranY > this.camera.position.y &&
-          renderSprite.worldAttribs.worldPosition.y + renderSprite.isoTranY < this.camera.position.y + this.camera.height)*/
       if(renderSprite.insideCamera)
       {
         this.ctx.save();
@@ -365,12 +278,6 @@ class GameWorld
       if(renderSprite.active)
       {
         renderSprite.update(deltaTimeSec);
-        /*
-        if(renderSprite.animated)
-        {
-          renderSprite._playAnim(deltaTimeSec);
-        }
-        */
       }
     });
   }
@@ -396,14 +303,6 @@ class GameWorld
         this.children, sprite, null), 1);
     this.calcRenderOrder();
   }
-  /*
-  reIndexChild(child, newIndex)
-  {
-    //move sprite in children array
-    ArrayFunctions.MoveObjectTo(this.children,child, newIndex);
-    this.calcRenderOrder();
-  }
-  */
   addTween(tween)
   {
     //add tween to the world
@@ -716,16 +615,6 @@ class ArrayFunctions
     let index = ArrayFunctions.FindObjectIndex(array, object, memberCallback);
     return array[index];
   }
-  /*
-  static MoveObjectTo(array, object, newIndex)
-  {
-    //TODO use destructuring assignment instead maybe
-    //move object index to new index
-    let currentIndex = ArrayFunctions.FindObjectIndex(array, object, null);
-    array.splice(currentIndex, 1);//remove from old pos
-    array.splice(newIndex, 0, object);
-  }
-  */
 }
 
 class Point
@@ -860,7 +749,7 @@ class Sprite
   {
     return 0;
   }
-  constructor(game,type,frames, x, y, fixed/*, animated*/, spriteSheet = game.spriteSheets[0], isometric = false,
+  constructor(game,type,frames, x, y, fixed, spriteSheet = game.spriteSheets[0], isometric = false,
       width = spriteSheet.spriteWidth, height = spriteSheet.spriteHeight)
   {
     this.active = true;
@@ -871,8 +760,6 @@ class Sprite
     this.frame = null;
     this.frameIndex = 0;
     this.spriteSheet = spriteSheet;
-    //this.width = spriteSheet.spriteWidth;
-    //this.height = spriteSheet.spriteHeight;
     this.width = width;
     this.height = height
     this.isometric = isometric;
@@ -880,7 +767,6 @@ class Sprite
     this.collisionHeight = this.height;
     this.frameRectangle = null;
     this._setFrames(type, frames);
-    //this.gravityEnabled = false;
     this.maxPosYSpeed = Number.MAX_SAFE_INTEGER;
     this.minPosYSpeed = Number.MIN_SAFE_INTEGER;
     this.flipX = false;
@@ -888,16 +774,7 @@ class Sprite
     this.isoTranX = 0;
     this.isoTranY = 0;
     this.insideCamera = true;
-    //this.renderedPosition = new Point(0, 0);
-    //this.isometric = {xRender: 0, yRender: 0, width: 0, height: 0};
-    /*
-    this.isometric = isometric;
-    if(this.isometric)
-    {
-      this.width = isometric.width;
-      this.height = isometric.height;
-    }
-    */
+    this.isoZ = 0;
 
     if(fixed)
     {
@@ -917,24 +794,11 @@ class Sprite
     this.events =
     {
       onKeyUp:null,
-      onKeyDown:null//,
-      //onMouseDown: null
+      onKeyDown:null
     };
     this.angle = 0;
     this.scale = new Point(1, 1);
     this.renderSearchIndex = 0; //used when determining render order
-    /*
-    this.animRate = 1 / 20;
-    if(animated)
-    {
-      this.animated = animated;
-    }
-    else
-    {
-      this.animated = false;
-    }
-    this.animTime = 0;
-    */
     this.alpha = 1;
     this.gridPos = new Point(0, 0);
     this.collidingX = false;
@@ -1015,27 +879,6 @@ class Sprite
     }
     this.frameRectangle = this.frameRectangles[0];
   }
-  /*
-  _playAnim(deltaTimeSec)
-  {
-    this.animTime += deltaTimeSec;
-    if(this.animTime > this.animRate)
-    {
-      //set next frame;
-      this.animTime = 0;
-      if(this.frameIndex < this.frames.length - 1)
-      {
-        this.frameIndex ++;
-      }
-      else
-      {
-        this.frameIndex = 0;
-      }
-      this.frame = this.frames[this.frameIndex];
-      this.frameRectangle = this.frameRectangles[this.frameIndex];
-    }
-  }
-  */
   setFrame(frameIndex)
   {
     this.frameIndex = frameIndex;
@@ -1044,12 +887,7 @@ class Sprite
   }
   update(deltaTimeSec)
   {
-    /*
-    if(this.animated)
-    {
-      this._playAnim(deltaTimeSec);
-    }
-    */
+
   }
   setGridPos(newGridPos)
   {
@@ -1199,7 +1037,7 @@ class SpritePool extends Pool
   newObject(objectArgs)
   {
     return new Sprite(objectArgs.game, objectArgs.type, objectArgs.frames,
-        objectArgs.x, objectArgs.y, objectArgs.fixed/*, objectArgs.animated*/);
+        objectArgs.x, objectArgs.y, objectArgs.fixed);
   }
 }
 
@@ -1209,9 +1047,9 @@ class WallSprite extends Sprite
   {
     return 1;
   }
-  constructor(game, frames, x, y/*, animated*/, isometric, width, height)
+  constructor(game, frames, x, y, isometric, width, height)
   {
-    super(game, Sprite.Type.SPRITE_SHEET, frames, x, y, true/*, animated*/, undefined, isometric, width, height);
+    super(game, Sprite.Type.SPRITE_SHEET, frames, x, y, true, undefined, isometric, width, height);
   }
 }
 
@@ -1224,7 +1062,7 @@ class WallSpritePool extends Pool
   newObject(objectArgs)
   {
     return new WallSprite(objectArgs.game, objectArgs.frames, objectArgs.x,
-        objectArgs.y/*, objectArgs.animated*/, objectArgs.isometric, objectArgs.width, objectArgs.height);
+        objectArgs.y, objectArgs.isometric, objectArgs.width, objectArgs.height);
   }
 }
 
@@ -1237,18 +1075,13 @@ class IsoTilemap extends Sprite
     this.sideWallSpritePool = new WallSpritePool();
     this.frontWallSpritePool = new WallSpritePool();
     this.topWallSpritePool = new WallSpritePool();
-
     this.wallSpritePools = [this.frontWallSpritePool, this.sideWallSpritePool, this.frontWallSpritePool, this.topWallSpritePool];
-
     this.dynamicIsoChildren = [];
-
     this.frontSprites = [];
     this.sideSprites = [];
     this.topSprites = [];
     this.frontRightSprites = [];
-
     this.wallSprites = [this.frontRightSprites, this.sideSprites, this.frontSprites, this.topSprites];
-
     this.frontRightsLayer = new Group(game, 0, 0);
     this.frontSidesLayers = new Group(game, 0, 0);
     this.topsLayer = new Group(game, 0, 0);
@@ -1286,7 +1119,7 @@ class IsoTilemap extends Sprite
           {
             let wallSprite = this.wallSpritePools[i].obtain({game: this.game, frames: mapData.grid[x][y].frames[i],
                 x: x * this.game.gameWorld.tileSize, y: y * this.game.gameWorld.tileSize,
-                /*animated: false,*/ isometric: true, width: this.game.tileSize, height: this.game.tileSize});
+                isometric: true, width: this.game.tileSize, height: this.game.tileSize});
 
             this.wallSprites[i].push(wallSprite);
             if(i === 1 || i === 2)
@@ -1360,85 +1193,6 @@ class IsoTilemap extends Sprite
     });
   }
 }
-
-/*
-class TileMap extends Sprite
-{
-  constructor(game)
-  {
-    super(game, null, null, 0, 0, true, false);
-    this.tileSprites = [];
-    this.wallSpritePool = new WallSpritePool();
-    this.wallSprites = [];
-    this.backgroundSprites = [];
-    this.backgroundSpritePool = new SpritePool();
-    this.dynamicIsoChildren = [];
-  }
-  clearTileSprites(collisionGrid = null)
-  {
-    if(collisionGrid)
-    {
-      collisionGrid.removeSprites(this.wallSprites, true);
-    }
-    this.wallSprites.forEach((sprite) =>
-    {
-      this.removeChild(sprite);
-    });
-    this.wallSpritePool.freeAll(this.wallSprites);
-    this.wallSprites.length = 0;
-    this.backgroundSprites.forEach((sprite) =>
-    {
-      this.removeChild(sprite);
-    });
-    this.backgroundSpritePool.freeAll(this.backgroundSprites);
-    this.backgroundSprites.length = 0;
-
-  }
-  createTileSprites(mapData, collisionGrid = null)
-  {
-    for(let x = 0; x < mapData.xDim; x++)
-    {
-      for(let y = 0; y < mapData.yDim; y++)
-      {
-        if(mapData.grid[x][y].wall)
-        {
-          let wallSprite = this.wallSpritePool.obtain({game: this.game, frames: mapData.grid[x][y].frames,
-              x: x * this.game.gameWorld.tileSize, y: y * this.game.gameWorld.tileSize,
-             isometric: true, width: this.game.tileSize, height: this.game.tileSize});
-
-          //wallSprite.animRate = mapData.grid[x][y].animRate;
-
-          this.addChild(wallSprite);
-          this.tileSprites.push(wallSprite);
-          this.wallSprites.push(wallSprite);
-        }
-        else if(mapData.grid[x][y].frames.length > 0)
-        {
-          let tileSprite = new Sprite(this.game, Sprite.Type.SPRITE_SHEET, mapData.grid[x][y].frames,
-              x * this.game.gameWorld.tileSize, y * this.game.gameWorld.tileSize, true, false);
-          this.addChild(tileSprite);
-          this.tileSprites.push(tileSprite);
-        }
-      }
-    }
-    if(collisionGrid)
-    {
-      collisionGrid.setTileMapWalls(mapData);
-      this.wallSprites.forEach((wallSprite) =>
-      {
-        collisionGrid.addSprite(wallSprite);
-      });
-    }
-  }
-  setWallSpriteCollisionGroups(collisionGroup)
-  {
-    this.wallSprites.forEach((sprite) =>
-    {
-      sprite.collisionGroup = collisionGroup;
-    });
-  }
-}
-*/
 
 class TextFrame
 {
@@ -2170,7 +1924,6 @@ class CollisionGrid extends MyGrid
     {
       gridPos.y ++;
     }
-    //console.log("gridx = " + gridPos.x);
     return gridPos;
   }
   clear()

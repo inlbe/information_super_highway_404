@@ -16,9 +16,7 @@ class MyGame extends Game
       Purple1: '#b967ff',
       Purple2: '#951aff',
       Purple3: '#6e00cc',
-      Yellow1: '#fffb9f'/*,
-      Yellow2: '#fff852',
-      Yellow3: '#fff505'*/
+      Yellow1: '#fffb9f'
     }
     return colourObj;
   }
@@ -48,8 +46,6 @@ class MyGame extends Game
     spriteShapes1.push(this.isometricCube(this.tileSize, y, 35, 'w5', 16));
     spriteShapes1.push(this.isometricCube(this.tileSize, y, 35, 'w6', 32));
     spriteShapes1.push([MyShape.Rectangle(0, 0, 0, 0, 'w7', MyGame.Palette.Pink1)]);
-
-    //spriteShapes1.push(this.isometricCube(this.tileSize / 4, y / 4, 9, 'b'));
 
     spriteShapes1.push(this.isometricCube(this.tileSize / 3, y / 8, 35, 'pg', 7, 0, 0,
         MyGame.Palette.Green1, MyGame.Palette.Green2, MyGame.Palette.Green3));
@@ -158,7 +154,7 @@ class TextSprite extends Sprite
   constructor(game, x, y, text, fillStyle = MyGame.Palette.Green1, fontSize = 32)
   {
     super(game, Sprite.Type.TEXT, {font: 'bold ' + fontSize + 'px serif', text: text, fillStyle: fillStyle},
-    x, y, true/*, false*/);
+    x, y, true);
   }
 }
 
@@ -167,7 +163,7 @@ class Background extends Group
   constructor(game, x, y)
   {
     super(game, x, y);
-    this.background = new Sprite(game, Sprite.Type.SPRITE_SHEET, ['b'], 0, 0, false, /*false,*/
+    this.background = new Sprite(game, Sprite.Type.SPRITE_SHEET, ['b'], 0, 0, false,
         game.spriteSheets[1]);
     this.addChild(this.background);
   }
@@ -197,12 +193,6 @@ class TitleGroup extends Group
     tri.position.x = (game.gameWorld.camera.width - tri.width) / 2;
     tri.position.y = (game.gameWorld.camera.height - tri.height) / 2;
     this.addChild(tri);
-
-
-
-
-
-
     let titleText = new TextSprite(game, 0, 0, "Information Super Highway", undefined, game.tileSize);
     titleText.position.x = (game.gameWorld.camera.width - titleText.width) / 2;
     this.addChild(titleText);
@@ -245,8 +235,7 @@ class TitleGroup extends Group
     {
       let isoMap = new IsoTilemap(game);
       let mapData = new MyGrid(numSize, numSize, {frames: [], wall: false,
-          /*animated: false, animRate: 0,*/ isometric: true});
-      //let number = numbers[index];
+          isometric: true});
       for(let x = 0; x < numSize; x++)
       {
         for(let y = 0; y < numSize; y++)
@@ -291,51 +280,6 @@ class TitleGroup extends Group
         new Point(isoMaps[2].position.x, -isoMaps[2].height),
         new Point(isoMaps[2].position.x, isoMaps[2].position.y)));
     moveTween3.active =  true;
-
-    /*
-    let isoMap = new IsoTilemap(game);
-
-    this.addChild(isoMap);
-
-    let mapData = new MyGrid((numbers.length * numSize) + (pad * (numbers.length - 1)), numSize, {frames: [], wall: false,
-        animated: false, animRate: 0, isometric: true});
-    for(let i = 0; i < numbers.length; i++)
-    {
-      let number = numbers[i];
-      for(let x = 0; x < numSize; x++)
-      {
-        for(let y = 0; y < numSize; y++)
-        {
-          if(number[y][x])
-          {
-            let cell = mapData.grid[(i * pad) + (i * numSize) + x][y];
-            cell.wall = true;
-            cell.frames = tiles[number[y][x]];
-          }
-        }
-      }
-    }
-    isoMap.createTileSprites(mapData);
-    isoMap.width = mapData.xDim * game.tileSize;
-    isoMap.height = mapData.yDim * game.tileSize;
-
-    isoMap.position.y = (this.game.gameWorld.camera.height - isoMap.height) / 2;
-    isoMap.position.y += ((isoMap.position.y + isoMap.height * 0.5) / game.tileSize) * -game.isometricProperties.xOffsetPerTile
-
-
-    //((renderSprite.worldAttribs.worldPosition.y + renderSprite.height * 0.5)
-    /// this.tileSize) * this.isometricProperties.yOffsetPerTile;
-
-    isoMap.position.x = (((isoMap.position.y + isoMap.height * 0.5)
-    / game.tileSize) * -game.isometricProperties.xOffsetPerTile) + ((game.gameWorld.camera.width - isoMap.width) / 2);
-    */
-
-
-    //let moveTween = game.gameWorld.addTween(new MoveTween(isoMap, 1, 0, Tween.CONST_SPEED,
-        //new Point(0, 0), new Point(400, 400)));
-    //moveTween.active =  true;
-
-    //let isoMap
   }
 }
 
@@ -373,26 +317,13 @@ class GameGroup extends Group
 
     let currentLevel = 0;
 
-    let generateMapData = (frames, /*mapXDim, mapYDim,*/ fillGrid, spacing = 1) =>
+    let generateMapData = (frames, fillGrid, spacing = 1) =>
     {
       let mapXDim = (fillGrid.xDim * (spacing + 1)) + 1;
       let mapYDim = (fillGrid.yDim * (spacing + 1)) + 1;
       let mapData = new MyGrid(mapXDim, mapYDim, {frames: [], wall: false,
-          /*animated: false,*/ /*animRate: 0,*/ isometric: true});
+          isometric: true});
       let mapFillGrid = new FillGrid(mapXDim, mapYDim);
-
-      //TODO NOT SURE WHAT I HAVE DONE HERE
-      /*
-      for(let x = 0; x < mapXDim; x++)
-      {
-        let colData = [];
-        for(let y = 0; y < mapYDim; y++)
-        {
-          colData.push({wall: false, animated: false, animRate: 0, frames: [], isometric: true});
-        }
-        mapData.grid.push(colData);
-      }
-      */
       fillGrid.grid.forEach((col, x) =>
       {
         col.forEach((cell, y) =>
@@ -403,8 +334,6 @@ class GameGroup extends Group
             {
               let dir = mazeCreator.fillGrid.directionObj.directions[index].point;
               let mapCell = null;
-              //let s = spacing;
-              //let t = 1;
 
               let ax = (spacing + 1) * x;
               let ay = (spacing + 1) * y;
@@ -426,27 +355,7 @@ class GameGroup extends Group
                   mapCell.frames = frames;
                   mapFillGrid.grid[xGrid][yGrid].filled = true;
                 }
-
-                //console.log("c = " + c + " d = " + d);
-                //let xGrid = c + (i * (1 - Math.abs(dir.x))) +
               }
-
-              /*
-              for(let i = -1 * spacing; i < spacing + 1; i++)
-              {
-                let xGrid = ((x * (spacing + 1)) + 1) + (i * (1 - Math.abs(dir.x))) + (dir.x * Math.floor((spacing + 1) / 2));
-                //console.log(((s + 1) * x) + (1 + (s / 2)));
-                //console.log()
-                let yGrid = ((y * (spacing + 1)) + 1) + (i * (1 - Math.abs(dir.y))) + (dir.y * Math.floor((spacing + 1) / 2));
-                mapCell = mapData.grid[xGrid][yGrid];
-                mapCell.wall = true;
-                if(mapCell.frames.length === 0)
-                {
-                  mapCell.frames = (frames);
-                  mapFillGrid.grid[xGrid][yGrid].filled = true;
-                }
-              }
-              */
             }
           });
         });
@@ -456,12 +365,8 @@ class GameGroup extends Group
 
     let resetLevel = () =>
     {
-      //this.gameWorld.stop();
       this.isoMap.clearTileSprites(game.gameWorld.collisionGrid);
-
       playerSpritePool.free(player);
-      //this.isoMap.removeDynamicIsoChild(player.bullet);
-      //game.gameWorld.collisionGrid.removeSprite(player.bullet);
       this.isoMap.removeDynamicIsoChild(player);
       game.gameWorld.collisionGrid.removeSprite(player);
       player = null;
@@ -480,8 +385,6 @@ class GameGroup extends Group
 
     this.newLevel = (levelObj = levels[currentLevel]) =>
     {
-      //let mapXDim = (xDim * 2) + 1;
-      //let mapYDim = (yDim * 2) + 1;
       let fillGrid = mazeCreator.makeMaze(levelObj.size, levelObj.size, levelObj.chambers);
       let obj = generateMapData(['w0', 'w1', 'w2', 'w3'], /*mapXDim, mapYDim,*/ fillGrid, 3);
       this.isoMap.createTileSprites(obj.mapData, game.gameWorld.collisionGrid);
@@ -501,60 +404,11 @@ class GameGroup extends Group
 
       player = playerSpritePool.obtain({game: game, x: ranEnd.x * game.tileSize,
           y: (ranEnd.y * game.tileSize), mapFillGrid: mapFillGrid});
-
-      //this.isoMap.addDynamicIsoChild(player.bullet).moveToTop();
-
-      /*player.bullet.onCollide.addListener(this,(bullet, collisionSprite) =>
-      {
-        bullet.setVisible(false);
-        bullet.active = false;
-        if(collisionSprite.gridPos.x > 0 && collisionSprite.gridPos.x < mapFillGrid.xDim - 1 &&
-            collisionSprite.gridPos.y > 0 && collisionSprite.gridPos.y < mapFillGrid.yDim - 1)
-        {
-          mapFillGrid.grid[collisionSprite.gridPos.x][collisionSprite.gridPos.y].filled = false;
-          if(collisionSprite.constructor.CollisionID === WallSprite.CollisionID)
-          {
-            let index = ArrayFunctions.FindObjectIndex(this.isoMap.topsLayer.children, collisionSprite);
-            this.isoMap.wallSprites.forEach((wallSpritesArray) =>
-            {
-              wallSpritesArray[index].setVisible(false);
-              if(mapFillGrid.grid[collisionSprite.gridPos.x][collisionSprite.gridPos.y -1].filled)
-              {
-                let upIndex = ArrayFunctions.FindObjectIndex(this.isoMap.topsLayer.children, true, (wallSprite) =>
-                {
-                  let found = false;
-                  if(collisionSprite.gridPos.x === wallSprite.gridPos.x && collisionSprite.gridPos.y - 1 === wallSprite.gridPos.y)
-                  {
-                    found = true;
-                  }
-                  return found;
-                });
-                this.isoMap.frontSprites[upIndex].setVisible(true);
-                this.isoMap.frontRightSprites[upIndex].setVisible(true);
-              }
-              if(mapFillGrid.grid[collisionSprite.gridPos.x - 1][collisionSprite.gridPos.y].filled)
-              {
-                let leftIndex = ArrayFunctions.FindObjectIndex(this.isoMap.topsLayer.children, true, (wallSprite) =>
-                {
-                  let found = false;
-                  if(collisionSprite.gridPos.x - 1 === wallSprite.gridPos.x && collisionSprite.gridPos.y === wallSprite.gridPos.y)
-                  {
-                    found = true;
-                  }
-                  return found;
-                });
-                this.isoMap.sideSprites[leftIndex].setVisible(true);
-              }
-            })
-          }
-        }
-      })*/
       player.onPickedUpPage.addListener(this,(page) =>
       {
         miniMap.doPickUpPage(page);
         page.setVisible(false);
         page.active = false;
-        //pagePool.free(page);
         if(!pageSprites.some((pageSprite) =>
         {
           return(pageSprite.visible)
@@ -585,8 +439,6 @@ class GameGroup extends Group
 
       game.gameWorld.collisionGrid.addSprite(player);
 
-
-
       for(let i = 0; i < levelObj.enemys; i++)
       {
         let enemy = enemySpritePool.obtain({game: game, x: 0, y: 0, ends: ends,
@@ -615,18 +467,16 @@ class GameGroup extends Group
       this.addChild(miniMap);
       this.isoMap.addDynamicIsoChild(player);
     }
-    //newLevel(levels[currentLevel]);
   }
 }
 
 class BaseIsoSprite extends Sprite
 {
-  constructor(game, frames, x, y, /*animated = false,*/ width = game.tileSize * (2/3),
+  constructor(game, frames, x, y,width = game.tileSize * (2/3),
       height = game.tileSize * (2/3))
   {
-    super(game, Sprite.Type.SPRITE_SHEET, frames, x, y, false, /*animated,*/ undefined, true,
+    super(game, Sprite.Type.SPRITE_SHEET, frames, x, y, false, undefined, true,
         width, height);
-    //this.mapFillGrid = mapFillGrid;
     this.onSet = new Signal(game, this);
   }
   doCollide()
@@ -643,10 +493,11 @@ class Page extends BaseIsoSprite
   }
   constructor(game, xGrid, yGrid)
   {
-    super(game, ['pg'], 0 , 0/*, false*/, game.tileSize / 3, game.tileSize / 8);
+    super(game, ['pg'], 0 , 0, game.tileSize / 3, game.tileSize / 8);
     this.position.x = (xGrid * game.tileSize) + ((game.tileSize - this.width) / 2);
     this.position.y = (yGrid * game.tileSize) + ((game.tileSize - this.height) / 2);
     this.solid = false;
+
   }
   set(objectArgs)
   {
@@ -664,13 +515,9 @@ class PlayerSprite extends BaseIsoSprite
   }
   constructor(game, x, y, mapFillGrid)
   {
-    super(game,['p2'], x, y/*, undefined*/);
-    //this.bullet = new Bullet(game, 0, 0);
+    super(game,['p2'], x, y);
     this.position.x += (game.tileSize - this.width) / 2;
     this.position.y += (game.tileSize - this.height) / 2;
-    this.facing = new Point(1, 0);
-    //this.fireTimer = new Timer(0.5);
-    //this.canShoot = true;
     this.onPickedUpPage = new Signal(game, this);
     this.onCollidedWithEnemy = new Signal(game, this);
     this.moveSpeed = this.game.tileSize * 3;
@@ -681,6 +528,7 @@ class PlayerSprite extends BaseIsoSprite
     let alphaTween = this.game.gameWorld.addTween(new AlphaTween(this, 0.2, 11, Tween.CONST_SPEED, 1, 0.2));
     let invincible = true;
     alphaTween.active = true;
+    this.isoZ = 1;
 
     alphaTween.onComplete = () =>
     {
@@ -700,28 +548,16 @@ class PlayerSprite extends BaseIsoSprite
       alphaTween.active = true;
       invincible = true;
     });
-    /*
-    this.fireTimer.onComplete = () =>
-    {
-      this.canShoot = true;
-      this.fireTimer.reset(false);
-    };
-    */
-    //game.gameWorld.timers.push(this.fireTimer);
     this.mapSize = new Point(0, 0);
     this.mapSize.x = mapFillGrid.xDim * game.tileSize;
     this.mapSize.y = mapFillGrid.yDim * (game.tileSize + (game.isometricProperties.yOffsetPerTile + 1));
-
-    //let collideEnemyCount = 0;
 
     this.onCollide.addListener(this, (sprite, collisionSprite) =>
     {
       if(!invincible && !scaleTween.active &&
           collisionSprite.constructor.CollisionID === EnemySprite.CollisionID)
       {
-        //this.onCollidedWithEnemy.dispatch();
         scaleTween.active = true;
-        //collideEnemyCount ++;
       }
       else if(collisionSprite.constructor.CollisionID === Page.CollisionID)
       {
@@ -734,8 +570,7 @@ class PlayerSprite extends BaseIsoSprite
       left: false,
       right: false,
       up: false,
-      down: false/*,
-      fire: false*/
+      down: false
     }
 
     this.events.onKeyDown = ((event) =>
@@ -757,13 +592,6 @@ class PlayerSprite extends BaseIsoSprite
       {
         this.keyStates.down = true;
       }
-
-      /*
-      if(event.keyCode === 17)
-      {
-        this.keyStates.fire = true;
-      }
-      */
     });
 
     this.events.onKeyUp = ((event) =>
@@ -784,12 +612,6 @@ class PlayerSprite extends BaseIsoSprite
       {
         this.keyStates.down = false;
       }
-      /*
-      else if(event.keyCode === 17)
-      {
-        this.keyStates.fire = false;
-      }
-      */
     });
     this.collisionGroup = WallSprite.CollisionID + EnemySprite.CollisionID + Page.CollisionID;
   }
@@ -799,37 +621,21 @@ class PlayerSprite extends BaseIsoSprite
     this.speed.y = 0;
     if(this.keyStates.right)
     {
-      this.facing.x = 1;
-      this.facing.y = 0;
       this.speed.x = this.moveSpeed;
     }
     else if(this.keyStates.left)
     {
-      this.facing.x = -1;
-      this.facing.y = 0;
       this.speed.x = -this.moveSpeed;
     }
     if(this.keyStates.up)
     {
-      this.facing.x = 0;
-      this.facing.y = -1;
       this.speed.y = -this.moveSpeed;
     }
     else if(this.keyStates.down)
     {
-      this.facing.x = 0;
-      this.facing.y = 1;
       this.speed.y = this.moveSpeed;
     }
-    /*
-    if(this.keyStates.fire && this.canShoot && !this.bullet.visible)
-    {
-      this.bullet.fire(this.centre, this.facing);
-      this.canShoot = false;
-      this.fireTimer.reset(true);
-    }
-    */
-    if(this.centre.x /*+ this.isoTranX*/ + (this.game.canvas.width / 2) > this.mapSize.x)
+    if(this.centre.x + (this.game.canvas.width / 2) > this.mapSize.x)
     {
       this.game.gameWorld.camera.position.x = this.mapSize.x + this.isoTranX - this.game.canvas.width;
     }
@@ -859,7 +665,6 @@ class PlayerSprite extends BaseIsoSprite
     super.reset();
     this.onPickedUpPage.listeners.length = 0;
     this.onCollidedWithEnemy.listeners.length = 0;
-    //this.bullet.onCollide.listeners.length = 0;
   }
   set(objectArgs)
   {
@@ -874,35 +679,6 @@ class PlayerSprite extends BaseIsoSprite
   }
 }
 
-/*
-class EnemySpriteGroup extends Group
-{
-  constructor(game, x, y, ends, mapFillGrid)
-  {
-    super(game, x, y);
-    this.enemySpritePool = new EnemySpritePool();
-    this.ends = ends;
-    this.mapFillGrid = mapFillGrid;
-  }
-  addEnemy()
-  {
-    let enemy = enemySpritePool.obtain({game: game, x: 0, y: 0, ends: ends,
-        mapFillGrid: mapFillGrid});
-    game.gameWorld.collisionGrid.addSprite(enemy);
-    this.isoMap.addDynamicIsoChild(enemy);
-    enemy.navigate();
-    enemy.onCollide.addListener(this, (collidingEnemy, collisionSprite) =>
-    {
-      if(collisionSprite.constructor.CollisionID === Bullet.CollisionID)
-      {
-        collidingEnemy.setVisible(false);
-        collidingEnemy.active = false;
-      }
-    });
-  }
-}
-*/
-
 class EnemySprite extends BaseIsoSprite
 {
   static get CollisionID()
@@ -911,10 +687,11 @@ class EnemySprite extends BaseIsoSprite
   }
   constructor(game, x, y, ends, mapFillGrid)
   {
-    super(game,['p1'], x, y/*, false*/);
+    super(game,['p1'], x, y);
     let gridSquarePool = new GridSquarePool();
     let gridPathPool = new GridPathPool();
     let gridPathFinderPool = new GridPathFinderPool();
+    this.isoZ = 1;
 
     let reversing = false;
 
@@ -1006,19 +783,12 @@ class EnemySprite extends BaseIsoSprite
       }
       if(reversing)
       {
-        //if(navIndex === currentPath.gridSquares.length - 1)
-        //{
-          //dir = oldDir;
-          //navIndex --;
-        //}
         this.speed.x = -dir.x * moveSpeed;
         this.speed.y = -dir.y * moveSpeed;
         if(navIndex === 0)
         {
           navIndex = -1;
           reversing = false;
-          //oldDir = -1;
-          //reNavigate = true;
         }
         else
         {
@@ -1031,12 +801,8 @@ class EnemySprite extends BaseIsoSprite
         this.speed.y = dir.y * moveSpeed;
         if(dir.x === 0 && dir.y === 0)
         {
-          //navIndex = 0;
           reversing = true;
           navIndex --;
-          //oldDir = -1;
-          //currentPath = newPath();
-          //this.navigate();
           reNavigate = true;
         }
         else
@@ -1072,62 +838,9 @@ class EnemySprite extends BaseIsoSprite
   set(objectArgs)
   {
     super.set(objectArgs);
-    //this.mapFillGrid = objectArgs.mapFillGrid;
     this.onSet.dispatch(objectArgs.ends, objectArgs.mapFillGrid);
   }
 }
-
-/*
-class Bullet extends BaseIsoSprite
-{
-  static get CollisionID()
-  {
-    return 1 << 3;
-  }
-  constructor(game, x, y)
-  {
-    super(game, ['b'], x, y, false, game.tileSize / 4, game.tileSize / 4);
-    this.moveSpeed = game.tileSize * 4;
-    this.collisionGroup = WallSprite.CollisionID + Bullet.CollisionID;
-    this.setVisible(false);
-    this.active = false;
-  }
-  fire(centre, direction)
-  {
-    this.position.x = centre.x - (this.width / 2);
-    this.position.y = centre.y - (this.height / 2);
-    this.speed.x = direction.x * this.moveSpeed;
-    this.speed.y = direction.y * this.moveSpeed;
-    this.calcCentre();
-    this.initGridPos();
-    this.game.gameWorld.collisionGrid.addSprite(this);
-    this.setVisible(true);
-    this.active = true;
-  }
-  reset()
-  {
-    super.reset();
-    this.setVisible(false);
-    this.active = false;
-    this.onCollide.listeners.length = 0;
-  }
-  update(deltaTime)
-  {
-    //let xIsoOffset = ((this.position.y) / this.game.tileSize) * this.game.isometricProperties.xOffsetPerTile;
-    //let yIsoOffset = ((this.position.y) / this.game.tileSize) * this.game.isometricProperties.yOffsetPerTile;
-    if(this.position.x + this.isoTranX >
-        this.game.gameWorld.camera.position.x + this.game.gameWorld.camera.width ||
-        this.position.x + this.width + this.isoTranX < this.game.gameWorld.camera.position.x ||
-        this.position.y + this.isoTranY >
-            this.game.gameWorld.camera.position.y + this.game.gameWorld.camera.height ||
-        this.position.y + this.height + this.isoTranY < this.game.gameWorld.camera.position.y)
-    {
-      this.setVisible(false);
-      this.active = false;
-    }
-  }
-}
-*/
 
 class MiniMap extends Group
 {
@@ -1148,12 +861,6 @@ class MiniMap extends Group
     let miniMapPagePool = new MiniMapPagePool();
     let miniMapPlayerPool = new MiniMapPlayerPool();
     let _player = player;
-    /*
-    _player.onPickedUpPage.addListener(this,(page) =>
-    {
-      console.log("mini map detected page picked up");
-    });
-    */
     let miniMapPlayer = null;
 
     this.onSet = new Signal(game, this);
@@ -1184,12 +891,6 @@ class MiniMap extends Group
       miniMapPagesLayer.removeChildren(miniMapPages);
       miniMapPages.length = 0;
       _player = player;
-      /*
-      _player.onPickedUpPage.addListener(this,(page) =>
-      {
-        console.log("mini map detected page picked up");
-      });
-      */
       miniMapPlayerPool.free(miniMapPlayer);
       miniMapPlayerLayer.removeChild(miniMapPlayer);
       miniMapPlayer = null;
@@ -1318,9 +1019,7 @@ class MiniMapSprite extends Sprite
 {
   constructor(game, gridX, gridY, gridSize, fixed, colour)
   {
-    super(game, Sprite.Type.MY_SHAPE, null, 0, 0, fixed/*, false*//*, false*/);
-
-    //this.onSet = new Signal(game, this);
+    super(game, Sprite.Type.MY_SHAPE, null, 0, 0, fixed);
     this.gridSize = gridSize;
     this.radius = gridSize * (3/8);
     this.position.x = (gridX * gridSize) + ((gridSize / 2) - this.radius);
@@ -1406,20 +1105,6 @@ class MiniMapPlayerPool extends Pool
   }
 }
 
-/*
-class EnemyBullet extends Bullet
-{
-  static get CollisionID()
-  {
-    return 1 << 4;
-  }
-  constructor(game, x, y)
-  {
-    super(game, x, y);
-  }
-}
-*/
-
 class PagePool extends Pool
 {
   constructor()
@@ -1476,26 +1161,8 @@ class MiniMapPool extends Pool
   }
 }
 
-/*
-class BulletPool extends Pool
-{
-  constructor()
-  {
-    super();
-  }
-  newObject(objectArgs)
-  {
-    return new Bullet(objectArgs.game,
-        objectArgs.x, objectArgs.y);
-  }
-}
-*/
-
-//let myGame = new MyGame(16, 12, 64);
-//let myGame = new MyGame(16, 12, 64, {xOffsetPerTile: -24, yScale: 81 / 6});
 let ang = Math.atan2(3, 4);
 let hyp = 30;
-//let myGame = new MyGame(16, 12, 64, {xOffsetPerTile: -24, yOffsetPerTile: -18});
 let myGame = new MyGame(20, 10, 64, {xOffsetPerTile: -Math.cos(ang) * hyp,
     yOffsetPerTile: -Math.sin(ang) * hyp, ang: Math.atan(23/12)});
 myGame.preload();
