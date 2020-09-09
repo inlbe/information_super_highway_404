@@ -306,13 +306,51 @@ class GameGroup extends Group
     let player = null;
     let pageSprites = [];
     let enemySprites = [];
+    let invisibleWallSprites = [];
+    let pickProportion = 0.1;
+    let pickAmount = 0;
+    let mapTimer = new Timer(0.1);
+    game.gameWorld.timers.push(mapTimer);
+    let onMapAllVisible = new Signal(game, this);
+    onMapAllVisible.addListener(this, () =>
+    {
+      enemySprites.forEach((enemySprite) =>
+      {
+        enemySprite.navigate();
+      });
+      player.startFlashing();
+    });
+    mapTimer.onComplete = () =>
+    {
+      let picks = pickAmount;
+      if(invisibleWallSprites.length < picks)
+      {
+        picks = invisibleWallSprites.length;
+      }
+      do
+      {
+        let pickedIndex = MathsFunctions.RandomInt(0, invisibleWallSprites.length);
+        invisibleWallSprites[pickedIndex].setVisible(true);
+        invisibleWallSprites.splice(pickedIndex, 1);
+        picks --;
+      } while (picks > 0);
+      if(invisibleWallSprites.length === 0)
+      {
+        onMapAllVisible.dispatch();
+      }
+      else
+      {
+        mapTimer.reset(true);
+      }
+    }
 
     let levels =
     [
       new Level(10, 5, 5, 0),
       new Level(15, 7, 8, 0),
       new Level(50, 10, 10, 1),
-      new Level(70, 13, 14, 2)
+      new Level(70, 13, 14, 2),
+      new Level(100, 16, 20, 3)
     ];
 
     let currentLevel = 0;
@@ -334,20 +372,15 @@ class GameGroup extends Group
             {
               let dir = mazeCreator.fillGrid.directionObj.directions[index].point;
               let mapCell = null;
-
               let ax = (spacing + 1) * x;
               let ay = (spacing + 1) * y;
               let cx = ax + (1 + (spacing / 2));
               let cy = ay + (1 + (spacing / 2));
               let d = cx - (((spacing + 1) * x) + 1);
-
               for(let i = -d - 1; i < d + 1; i++)
               {
-
-
                 let xGrid = cx + (i * (1 - Math.abs(dir.x))) + (dir.x * (d + Math.abs(Math.min(dir.x, 0))));
                 let yGrid = cy + (i * (1 - Math.abs(dir.y))) + (dir.y * (d + Math.abs(Math.min(dir.y, 0))));
-
                 mapCell = mapData.grid[xGrid][yGrid];
                 mapCell.wall = true;
                 if(mapCell.frames.length === 0)
@@ -362,9 +395,10 @@ class GameGroup extends Group
       });
       return {mapData, mapFillGrid};
     }
-
     let resetLevel = () =>
     {
+      mapTimer.reset(false);
+      invisibleWallSprites.length = 0;
       this.isoMap.clearTileSprites(game.gameWorld.collisionGrid);
       playerSpritePool.free(player);
       this.isoMap.removeDynamicIsoChild(player);
@@ -382,15 +416,26 @@ class GameGroup extends Group
       this.removeChild(miniMap);
       miniMap = null;
     }
-
     this.newLevel = (levelObj = levels[currentLevel]) =>
     {
       let fillGrid = mazeCreator.makeMaze(levelObj.size, levelObj.size, levelObj.chambers);
-      let obj = generateMapData(['w0', 'w1', 'w2', 'w3'], /*mapXDim, mapYDim,*/ fillGrid, 3);
+      let obj = generateMapData(['w0', 'w1', 'w2', 'w3'], fillGrid, 3);
       this.isoMap.createTileSprites(obj.mapData, game.gameWorld.collisionGrid);
-      this.isoMap.setWallSpriteCollisionGroups(PlayerSprite.CollisionID /*+ Bullet.CollisionID*/);
+      this.isoMap.setWallSpriteCollisionGroups(PlayerSprite.CollisionID);
+      this.isoMap.wallSprites.forEach((spriteArray) =>
+      {
+        spriteArray.forEach((sprite) =>
+        {
+          if(sprite.visible)
+          {
+            sprite.setVisible(false);
+            invisibleWallSprites.push(sprite);
+          }
+        });
+      });
+      pickAmount = Math.floor(pickProportion * invisibleWallSprites.length);
+      mapTimer.reset(true);
       let mapFillGrid = obj.mapFillGrid;
-
       let ends = [];
       mapFillGrid.forEach((obj, x, y) =>
       {
@@ -399,9 +444,7 @@ class GameGroup extends Group
           ends.push(new Point(x, y));
         }
       });
-
       let ranEnd = MathsFunctions.RandomPick(ends);
-
       player = playerSpritePool.obtain({game: game, x: ranEnd.x * game.tileSize,
           y: (ranEnd.y * game.tileSize), mapFillGrid: mapFillGrid});
       player.onPickedUpPage.addListener(this,(page) =>
@@ -416,19 +459,18 @@ class GameGroup extends Group
         {
           if(currentLevel < levels.length - 1)
           {
-            this.game.gameWorld.stop();
-            resetLevel();
             currentLevel ++;
-            this.newLevel(levels[currentLevel]);
-            this.game.gameWorld.start();
           }
           else
           {
-            //return to menu
+            currentLevel = 0;
           }
+          this.game.gameWorld.stop();
+          resetLevel();
+          this.newLevel(levels[currentLevel]);
+          this.game.gameWorld.start();
         }
       });
-
       player.onCollidedWithEnemy.addListener(this, () =>
       {
         this.game.gameWorld.stop();
@@ -436,9 +478,7 @@ class GameGroup extends Group
         this.newLevel(levels[currentLevel]);
         this.game.gameWorld.start();
       });
-
       game.gameWorld.collisionGrid.addSprite(player);
-
       for(let i = 0; i < levelObj.enemys; i++)
       {
         let enemy = enemySpritePool.obtain({game: game, x: 0, y: 0, ends: ends,
@@ -446,11 +486,8 @@ class GameGroup extends Group
         enemySprites.push(enemy);
         game.gameWorld.collisionGrid.addSprite(enemy);
         this.isoMap.addDynamicIsoChild(enemy);
-        enemy.navigate();
       }
-
       let endsClone = [...ends];
-
       for(let i = 0; i < levelObj.pages; i++)
       {
         let endIndex = MathsFunctions.RandomInt(0, endsClone.length);
@@ -461,7 +498,6 @@ class GameGroup extends Group
         game.gameWorld.collisionGrid.addSprite(page);
         this.isoMap.addDynamicIsoChild(page);
       }
-
       miniMap = miniMapPool.obtain({game: game, x: 0, y: 0, mapFillGrid: mapFillGrid,
           pageSprites: pageSprites, player: player});
       this.addChild(miniMap);
@@ -469,7 +505,6 @@ class GameGroup extends Group
     }
   }
 }
-
 class BaseIsoSprite extends Sprite
 {
   constructor(game, frames, x, y,width = game.tileSize * (2/3),
@@ -527,31 +562,31 @@ class PlayerSprite extends BaseIsoSprite
         startScalePoint, endScalePoint));
     let alphaTween = this.game.gameWorld.addTween(new AlphaTween(this, 0.2, 11, Tween.CONST_SPEED, 1, 0.2));
     let invincible = true;
-    alphaTween.active = true;
+    this.processKeys = false;
     this.isoZ = 1;
-
     alphaTween.onComplete = () =>
     {
       invincible = false;
     }
-
     scaleTween.onComplete = () =>
     {
       this.onCollidedWithEnemy.dispatch();
     }
-
     this.onSet.addListener(this, () =>
     {
       scaleTween.setStartEnd(startScalePoint, endScalePoint);
       scaleTween.active = false;
       alphaTween.setStartEnd(1, 0.2);
-      alphaTween.active = true;
       invincible = true;
     });
+    this.startFlashing = () =>
+    {
+      this.processKeys = true;
+      alphaTween.active = true;
+    }
     this.mapSize = new Point(0, 0);
     this.mapSize.x = mapFillGrid.xDim * game.tileSize;
     this.mapSize.y = mapFillGrid.yDim * (game.tileSize + (game.isometricProperties.yOffsetPerTile + 1));
-
     this.onCollide.addListener(this, (sprite, collisionSprite) =>
     {
       if(!invincible && !scaleTween.active &&
@@ -564,7 +599,6 @@ class PlayerSprite extends BaseIsoSprite
         this.onPickedUpPage.dispatch(collisionSprite);
       }
     });
-
     this.keyStates =
     {
       left: false,
@@ -572,7 +606,6 @@ class PlayerSprite extends BaseIsoSprite
       up: false,
       down: false
     }
-
     this.events.onKeyDown = ((event) =>
     {
       if(event.keyCode === 39 || event.key === 'd' || event.key === 'D')
@@ -593,7 +626,6 @@ class PlayerSprite extends BaseIsoSprite
         this.keyStates.down = true;
       }
     });
-
     this.events.onKeyUp = ((event) =>
     {
       if(event.keyCode === 39 || event.key === 'd' || event.key === 'D')
@@ -617,25 +649,34 @@ class PlayerSprite extends BaseIsoSprite
   }
   update(deltaTimeSec)
   {
-    this.speed.x = 0;
-    this.speed.y = 0;
-    if(this.keyStates.right)
+    if(this.processKeys)
     {
-      this.speed.x = this.moveSpeed;
+      this.speed.x = 0;
+      this.speed.y = 0;
+      if(this.keyStates.right)
+      {
+        this.speed.x = this.moveSpeed;
+      }
+      else if(this.keyStates.left)
+      {
+        this.speed.x = -this.moveSpeed;
+      }
+      if(this.keyStates.up)
+      {
+        this.speed.y = -this.moveSpeed;
+      }
+      else if(this.keyStates.down)
+      {
+        this.speed.y = this.moveSpeed;
+      }
     }
-    else if(this.keyStates.left)
+
+    if(this.mapSize.x < this.game.canvas.width)
     {
-      this.speed.x = -this.moveSpeed;
+      this.game.gameWorld.camera.position.x = this.isoTranX;
+      //this.game.gameWorld.camera.position.x = this.centre.x + this.isoTranX - (this.game.canvas.width / 2);
     }
-    if(this.keyStates.up)
-    {
-      this.speed.y = -this.moveSpeed;
-    }
-    else if(this.keyStates.down)
-    {
-      this.speed.y = this.moveSpeed;
-    }
-    if(this.centre.x + (this.game.canvas.width / 2) > this.mapSize.x)
+    else if(this.centre.x + (this.game.canvas.width / 2) > this.mapSize.x)
     {
       this.game.gameWorld.camera.position.x = this.mapSize.x + this.isoTranX - this.game.canvas.width;
     }
@@ -647,7 +688,12 @@ class PlayerSprite extends BaseIsoSprite
     {
       this.game.gameWorld.camera.position.x = this.isoTranX;
     }
-    if(this.centre.y + this.isoTranY + (this.game.canvas.height / 2) > this.mapSize.y)
+
+    if(this.mapSize.y < this.game.canvas.height)
+    {
+      this.game.gameWorld.camera.position.y = 0;
+    }
+    else if(this.centre.y + this.isoTranY + (this.game.canvas.height / 2) > this.mapSize.y)
     {
       this.game.gameWorld.camera.position.y = this.mapSize.y - (this.game.canvas.height);
     }
@@ -675,6 +721,7 @@ class PlayerSprite extends BaseIsoSprite
     this.position.y += (this.game.tileSize - this.height) / 2;
     this.scale.x = 1;
     this.scale.y = 1;
+    this.processKeys = false;
     this.onSet.dispatch();
   }
 }
@@ -692,84 +739,67 @@ class EnemySprite extends BaseIsoSprite
     let gridPathPool = new GridPathPool();
     let gridPathFinderPool = new GridPathFinderPool();
     this.isoZ = 1;
-
     let reversing = false;
-
     let _ends = ends;
     let _mapFillGrid = mapFillGrid;
-
     this.onSet.addListener(this, (ends, mapFillGrid) =>
     {
       _ends = ends;
       _mapFillGrid = mapFillGrid;
-
       navIndex = 0;
-      oldDir = -1;
+      oldDir = null;
       reversing = false;
-      currentPath = newPath(true);
+      primePath();
+    });
+
+    let primePath = () =>
+    {
+      currentPath = newPath();
       pos = currentPath.gridSquares[navIndex].position;
       this.position.x = (pos.x * game.tileSize) + ((game.tileSize - this.width) / 2);
       this.position.y = (pos.y * game.tileSize) + ((game.tileSize - this.height) / 2);
-    });
+    }
 
-    let newPath = (init = false) =>
+    let newPath = () =>
     {
       let clonedEnds = [..._ends];
       let startPoint = null;
       let startIndex = 0;
       let colGridEmpty = false;
-      if(init)
+      while(!colGridEmpty)
       {
-        while(!colGridEmpty)
+        startIndex = MathsFunctions.RandomInt(0, clonedEnds.length);
+        let gridCell = game.gameWorld.collisionGrid.grid[clonedEnds[startIndex].x][clonedEnds[startIndex].y];
+        if(!gridCell.sprites.some((sprite) =>
         {
-          startIndex = MathsFunctions.RandomInt(0, clonedEnds.length);
-          let gridCell = game.gameWorld.collisionGrid.grid[clonedEnds[startIndex].x][clonedEnds[startIndex].y];
-          if(!gridCell.sprites.some((sprite) =>
+          if(sprite.constructor.CollisionID === PlayerSprite.CollisionID ||
+              sprite.constructor.CollisionID === EnemySprite.CollisionID)
           {
-            if(sprite.constructor.CollisionID === PlayerSprite.CollisionID ||
-                sprite.constructor.CollisionID === EnemySprite.CollisionID)
-            {
-              return true;
-            }
-          }))
-          {
-            colGridEmpty = true;
+            return true;
           }
-          else
-          {
-            clonedEnds.splice(startIndex, 1);
-          }
+        }))
+        {
+          colGridEmpty = true;
         }
-      }
-      else
-      {
-        startIndex = ArrayFunctions.FindObjectIndex(clonedEnds, true, (item) =>
+        else
         {
-          let found = false;
-          if(this.gridPos.x === item.x && this.gridPos.y === item.y)
-          {
-            found = true;
-          }
-          return found;
-        });
+          clonedEnds.splice(startIndex, 1);
+        }
       }
       startPoint = clonedEnds[startIndex];
       clonedEnds.splice(startIndex, 1);
       let endPoint = MathsFunctions.RandomPick(clonedEnds);
-
       let gridPathFinder = gridPathFinderPool.obtain({fillGrid: _mapFillGrid, start: startPoint,
           end: endPoint, gridPaths: null, gridSquarePool: gridSquarePool,
           gridPathPool: gridPathPool});
       let obj = gridPathFinder.process();
       return gridPathFinder.gridPaths[obj.pathIndex];
     }
-
-    let currentPath = newPath(true);
+    let currentPath = null
     let navIndex = 0;
-    let oldDir = -1;
-    let pos = currentPath.gridSquares[navIndex].position;
-    this.position.x = (pos.x * game.tileSize) + ((game.tileSize - this.width) / 2);
-    this.position.y = (pos.y * game.tileSize) + ((game.tileSize - this.height) / 2);
+    let oldDir = null;
+    let pos = null
+    primePath();
     let moveSpeed = game.tileSize * 1.5;
     let direction = new Direction();
     this.navigate = () =>
@@ -826,7 +856,6 @@ class EnemySprite extends BaseIsoSprite
       {
         this.navigate();
       }
-
     });
     this.collisionGroup = PlayerSprite.CollisionID;
   }
@@ -862,9 +891,7 @@ class MiniMap extends Group
     let miniMapPlayerPool = new MiniMapPlayerPool();
     let _player = player;
     let miniMapPlayer = null;
-
     this.onSet = new Signal(game, this);
-
     this.doPickUpPage = (pageSprite) =>
     {
       let index = ArrayFunctions.FindObjectIndex(miniMapPages, pageSprite, (miniMapPage) =>
@@ -903,7 +930,6 @@ class MiniMap extends Group
     let hor = [];
     let generateFrames = () =>
     {
-
       //do verticals;
       _mapFillGrid.grid.forEach((row, x) =>
       {
@@ -973,7 +999,6 @@ class MiniMap extends Group
           }
         }
       }
-      //let lineSize = size / _mapFillGrid.xDim;
       ver.forEach((a) =>
       {
         wallsLayer.frames.push(MyShape.Rectangle(a[0].x * gridSize, a[0].y * gridSize, gridSize, (a[1].y - a[0].y) * gridSize, undefined, MyGame.Palette.Blue1));
@@ -1021,24 +1046,25 @@ class MiniMapSprite extends Sprite
   {
     super(game, Sprite.Type.MY_SHAPE, null, 0, 0, fixed);
     this.gridSize = gridSize;
-    this.radius = gridSize * (3/8);
-    this.position.x = (gridX * gridSize) + ((gridSize / 2) - this.radius);
-    this.position.y = (gridY * gridSize) + ((gridSize / 2) - this.radius);
+    this.size = gridSize * (3/4);
+    this.mapPad = ((gridSize - this.size) / 2);
+    this.position.x = (gridX * gridSize) + this.mapPad;
+    this.position.y = (gridY * gridSize) + this.mapPad;
     this.colour = colour;
     this.setShape()
   }
   setShape()
   {
     this.frames.length = 0;
-    this.frames.push(MyShape.Circle(0, 0, this.radius, this.colour));
+    this.frames.push(MyShape.Rectangle(0, 0, this.size, this.size, null, this.colour));
   }
   set(objectArgs)
   {
     super.set(objectArgs);
     this.gridSize = objectArgs.gridSize;
-    this.radius = objectArgs.gridSize * (3/8);
-    this.position.x = (objectArgs.gridX * objectArgs.gridSize) + ((objectArgs.gridSize / 2) - this.radius);
-    this.position.y = (objectArgs.gridY * objectArgs.gridSize) + ((objectArgs.gridSize / 2) - this.radius);
+    this.size = objectArgs.gridSize * (3/4);
+    this.position.x = (objectArgs.gridX * objectArgs.gridSize) + this.mapPad;
+    this.position.y = (objectArgs.gridY * objectArgs.gridSize) + this.mapPad;
     this.setShape();
   }
 }
@@ -1160,9 +1186,17 @@ class MiniMapPool extends Pool
         objectArgs.player);
   }
 }
+//got this off stackoverflow
+var win = window,
+    doc = document,
+    docElem = doc.documentElement,
+    body = doc.getElementsByTagName('body')[0],
+    x = win.innerWidth || docElem.clientWidth || body.clientWidth,
+    y = win.innerHeight|| docElem.clientHeight|| body.clientHeight;
 
 let ang = Math.atan2(3, 4);
 let hyp = 30;
-let myGame = new MyGame(20, 10, 64, {xOffsetPerTile: -Math.cos(ang) * hyp,
+let tileSize = 64
+let myGame = new MyGame(x / tileSize, y / tileSize, tileSize, {xOffsetPerTile: -Math.cos(ang) * hyp,
     yOffsetPerTile: -Math.sin(ang) * hyp, ang: Math.atan(23/12)});
 myGame.preload();

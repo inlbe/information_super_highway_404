@@ -35,7 +35,6 @@ class MazeCreator
         }
       }
     };
-    //do
     while(chambers > 0 && possibleChamberPoints.length > 0)
     {
       let ranPoint = MathsFunctions.RandomPick(possibleChamberPoints);
@@ -51,7 +50,6 @@ class MazeCreator
         {
           return true;
         }
-
       }))
       {
         this._removePoint(possibleChamberPoints, ranPoint);
@@ -63,7 +61,6 @@ class MazeCreator
 
       }
     }
-    //while(chambers > 0 && possibleChamberPoints.length > 0)
     chamberPoints.forEach((chamberPoint) =>
     {
       for(let x = chamberPoint.x - floorHalfChamberSize; x < chamberPoint.x + floorHalfChamberSize + 1; x++)
@@ -96,16 +93,12 @@ class MazeCreator
         gridPoints.push(new Point(x, y));
       }
     }
-
     let chamberPoints = this._doChamberPoints(chambers, gridPoints);
-
     let ranPoint = MathsFunctions.RandomPick(gridPoints);
     let start = new Point().setTo(ranPoint);
     ranPoint = MathsFunctions.RandomPick(gridPoints);
     let end = new Point().setTo(ranPoint);
     let done = false;
-    //debugger;
-
     do
     {
       let gridPathFinder = this.gridPathFinderPool.obtain({fillGrid: this.fillGrid, start: start,
@@ -191,9 +184,7 @@ class MazeCreator
       this.chamberEntrances.push(new Point(chamberPoint.x + xOffset, chamberPoint.y + yOffest));
       this.fillGrid.grid[chamberPoint.x + xOffset]
           [chamberPoint.y + yOffest].enclosed[openSideIndex] = false;
-
     });
-
     return this.fillGrid;
   }
   _removePoint(gridPoints, point)

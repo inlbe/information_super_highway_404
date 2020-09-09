@@ -32,7 +32,6 @@ class GameWorld
       onKeyDown:null
     };
     this.timers = [];
-
     document.addEventListener('keydown', (event) =>
     {
       if(this.events.onKeyDown)
@@ -47,7 +46,6 @@ class GameWorld
         }
       });
     });
-
     document.addEventListener('keyup', (event) =>
     {
       if(this.events.onKeyUp)
@@ -62,7 +60,6 @@ class GameWorld
         }
       });
     });
-
   }
   start()
   {
@@ -134,7 +131,6 @@ class GameWorld
       renderSprite.calcWorldAttribs();
       renderSprite.calcCentre();
     });
-
     this.renderSprites.forEach((renderSprite) =>
     {
       if(renderSprite.isometric)
@@ -158,8 +154,6 @@ class GameWorld
         renderSprite.insideCamera = false;
       }
     });
-
-
     this.isoTilemaps.forEach((isoMap) =>
     {
       let insideCameraDynamicIsoChildren = [];
@@ -170,15 +164,32 @@ class GameWorld
           insideCameraDynamicIsoChildren.push(dynamicIsoChild);
         }
       });
-      insideCameraDynamicIsoChildren.forEach((dynamicIsoChild) =>
+      let clearFrontSidesLayers = () =>
       {
-        let childIndex = ArrayFunctions.FindObjectIndex(isoMap.frontSidesLayers.children, dynamicIsoChild);
-        isoMap.frontSidesLayers.children.splice(childIndex, 1);
-      });
-      insideCameraDynamicIsoChildren.sort(function (a, b)
-      {
-        return a.position.x - b.position.x;
-      });
+        let index = 0;
+        let spliced = [];
+        while(index < isoMap.frontSidesLayers.children.length)
+        {
+          let sprite = isoMap.frontSidesLayers.children[index];
+          if(sprite.frame)
+          {
+            spliced.push(sprite);
+            isoMap.frontSidesLayers.children.splice(index, 1);
+          }
+          else
+          {
+            index ++;
+          }
+        }
+        spliced.forEach((sprite) =>
+        {
+          if(ArrayFunctions.FindObjectIndex(insideCameraDynamicIsoChildren, sprite) < 0)
+          {
+            isoMap.frontSidesLayers.children.push(sprite);
+          }
+        });
+      }
+      clearFrontSidesLayers();
       insideCameraDynamicIsoChildren.forEach((sprite) =>
       {
         //depth sorting stuff
@@ -199,6 +210,27 @@ class GameWorld
           {
             index ++;
           }
+          else
+          {
+            index = sortX(sprite, index, children)
+          }
+          return index;
+        }
+        let sortX = (sprite, index, children) =>
+        {
+          while(children[index].frame && children[index].isoZ === sprite.isoZ &&
+              children[index].position.x > sprite.position.x)
+          {
+            if(index > 0)
+            {
+              index --;
+            }
+            else
+            {
+              break;
+            }
+          }
+          index ++;
           return index;
         }
         let count1 = 0;
@@ -767,8 +799,6 @@ class Sprite
     this.collisionHeight = this.height;
     this.frameRectangle = null;
     this._setFrames(type, frames);
-    this.maxPosYSpeed = Number.MAX_SAFE_INTEGER;
-    this.minPosYSpeed = Number.MIN_SAFE_INTEGER;
     this.flipX = false;
     this.collideOffset = new Point(0, 0);
     this.isoTranX = 0;
@@ -979,7 +1009,6 @@ class Sprite
     this.speed.x = 0;
     this.speed.y = 0;
     this.angle = 0;
-
   }
   set(objectArgs)
   {
@@ -1024,7 +1053,7 @@ class Group extends Sprite
 {
   constructor(game, x, y)
   {
-    super(game, null, null, x, y, true/*, false*/);
+    super(game, null, null, x, y, true);
   }
 }
 
@@ -1558,34 +1587,6 @@ class MyShape
     this.strokeStyle = strokeStyle;
     this.lineWidth = lineWidth;
   }
-  static Circle(x, y, radius, fillStyle = null, name = '', points = 100, startAngle = 0,
-      endAngle = 0, strokeStyle = null, lineWidth = null)
-  {
-    if(!name)
-    {
-      name = "circle";
-    }
-    if(!startAngle)
-    {
-      startAngle = 0;
-    }
-    if(!endAngle)
-    {
-      endAngle = Math.PI * 2;
-    }
-    if(!points)
-    {
-      points = 100;
-    }
-    let circlePoints = new Array();
-    let pointAngle = ((endAngle - startAngle) / points);
-    for(let i = 0; i < points; i++)
-    {
-      circlePoints[i] = new Point((Math.cos((i * pointAngle) + startAngle) * radius) + radius + x,
-          (-Math.sin((i * pointAngle) + startAngle) * radius) + radius + y);
-    }
-    return new MyShape(circlePoints, name, fillStyle, strokeStyle, lineWidth);
-  }
   static Rectangle(x, y, width, height, name, fillStyle, strokeStyle = null, lineWidth = null)
   {
     let rectPoints = [new Point(x, y), new Point(x + width, y),
@@ -1847,8 +1848,6 @@ class CollisionGrid extends MyGrid
               colDisY = checkSpriteCentres[i].y - spriteCentres[i].y;
               colWidth = (checkSprite.collisionWidth / 2) + (sprite.collisionWidth / 2);
               colHeight = (checkSprite.collisionHeight / 2) + (sprite.collisionHeight / 2);
-
-
               if(Math.abs(colDisX) < colWidth && Math.abs(colDisY) < colHeight)
               {
                 collided = true;
@@ -2006,7 +2005,6 @@ class Signal
   {
     this.listeners.splice(ArrayFunctions.FindObjectIndex(this.listeners, listener), 1);
   }
-
 }
 
 class Listener
@@ -2018,83 +2016,3 @@ class Listener
     this.terminate = terminate;
   }
 }
-
-/*
-class AudioPlayer
-{
-  constructor(world)
-  {
-    this.audioContext = new (window.AudioContext || window.webkitAudioContext);
-    this.masterGainNode = this.audioContext.createGain();
-    this.masterGainNode.connect(this.audioContext.destination);
-    this.masterGainNode.gain.value = 0.1;
-    this.alpha = Math.pow(2, (1/12));
-    this.AFourFreq = 440;
-    this.world = world;
-  }
-  playMusic(notes, tempo, loop = false)
-  {
-    let timer = new Timer(0);
-    this.world.timers.push(timer);
-    let noteQueue = [];
-    let noteData = 0;
-    let halfNoteDiff = 0;
-    let period = 0;
-    let noteFreq = 0;
-    let noteIndex = -1;
-    let osc = this.audioContext.createOscillator();
-    osc.connect(this.masterGainNode);
-    osc.type = "square";
-    osc.start();
-
-    timer.onComplete = () =>
-    {
-      nextNote();
-    };
-    let nextNote = () =>
-    {
-      noteIndex ++;
-      if(noteIndex > noteQueue.length - 1 && loop)
-      {
-        noteIndex = 0;
-      }
-      let obj = noteQueue[noteIndex];
-      if(obj)
-      {
-        timer.endTime = obj.period;
-        timer.reset(true);
-        osc.frequency.value = obj.noteFreq;
-      }
-      else
-      {
-        osc.stop();
-      }
-    }
-    for(let i = 0; i < notes.length; i+=2)
-    {
-      noteData = parseInt(notes.substring(i, i + 2), 16);
-      if((noteData & 0x3e) === 0x3e)
-      {
-        //blank
-        noteFreq = 0;
-      }
-      else
-      {
-        halfNoteDiff = (noteData & 0x3e) >> 1;
-        if(noteData & 0x1)
-        {
-          halfNoteDiff = -halfNoteDiff;
-        }
-        noteFreq = this.AFourFreq * Math.pow(this.alpha, halfNoteDiff);
-      }
-      period = (4 / (Math.pow(2, (noteData & 0xc0) >> 6))) / (tempo / 60);
-      noteQueue.push(
-      {
-        noteFreq: noteFreq,
-        period: period
-      });
-    }
-    nextNote();
-  }
-}
-*/
