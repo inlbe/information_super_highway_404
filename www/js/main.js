@@ -742,6 +742,7 @@ class EnemySprite extends BaseIsoSprite
     let reversing = false;
     let _ends = ends;
     let _mapFillGrid = mapFillGrid;
+    let gridPathFinder = null;
     this.onSet.addListener(this, (ends, mapFillGrid) =>
     {
       _ends = ends;
@@ -789,7 +790,11 @@ class EnemySprite extends BaseIsoSprite
       startPoint = clonedEnds[startIndex];
       clonedEnds.splice(startIndex, 1);
       let endPoint = MathsFunctions.RandomPick(clonedEnds);
-      let gridPathFinder = gridPathFinderPool.obtain({fillGrid: _mapFillGrid, start: startPoint,
+      if(gridPathFinder)
+      {
+        gridPathFinderPool.free(gridPathFinder);
+      }
+      gridPathFinder = gridPathFinderPool.obtain({fillGrid: _mapFillGrid, start: startPoint,
           end: endPoint, gridPaths: null, gridSquarePool: gridSquarePool,
           gridPathPool: gridPathPool});
       let obj = gridPathFinder.process();
