@@ -1,3 +1,61 @@
+/*class Point
+{
+  constructor(x = 0, y = 0)
+  {
+    this.x = x;
+    this.y = y;
+  }
+  compare(another)
+  {
+    if(another)
+    {
+      if(another.x === this.x && another.y === this.y)
+      {
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }
+    else
+    {
+      return false;
+    }
+  }
+  setTo(another)
+  {
+    this.x = another.x;
+    this.y = another.y;
+    return this;
+  }
+  add(another)
+  {
+    if(another)
+    {
+      this.x += another.x;
+      this.y += another.y;
+    }
+  }
+  addNew(another)
+  {
+    //add and return a new point
+    return new Point(this.x + another.x, this.y + another.y);
+  }
+}
+*/
+
+importScripts('Framework.js');
+
+
+
+
+
+
+
+//let someObject = {x:1, y:2};
+//let dir = new Direction();
+
 class GridSquarePool extends Pool
 {
   constructor()
@@ -346,4 +404,44 @@ class GridPathFinder
     this.gridPathPool.freeAll(this.gridPaths);
     this.gridPaths.length = 0;
   }
+}
+
+let gridSquarePool = new GridSquarePool();
+let gridPathPool = new GridPathPool();
+let gridPathFinderPool = new GridPathFinderPool();
+let gridPathFinder = null;
+
+onmessage = (e) =>
+{
+  console.log('Message received from main script');
+  if(gridPathFinder)
+  {
+    gridPathFinderPool.free(gridPathFinder);
+  }
+  gridPathFinder = gridPathFinderPool.obtain({fillGrid: e.data[0], start: e.data[1],
+      end: e.data[2], gridPaths:null, gridSquarePool: gridSquarePool,
+      gridPathPool: gridPathPool});
+  let obj = gridPathFinder.process();
+  if(obj.pathActive)
+  {
+    postMessage(gridPathFinder.gridPaths[obj.pathIndex]);
+  }
+  else
+  {
+    postMessage(null);
+  }
+
+  /*
+  gridPathFinderPool.obtain({fillGrid: _mapFillGrid, start: startPoint,
+      end: endPoint, gridPaths: null, gridSquarePool: gridSquarePool,
+      gridPathPool: gridPathPool});
+  */
+  //let fillGrid = e
+
+
+  //someObject.x = 3;
+  //let a = dir.directions[0];
+  //var workerResult = 'Result: ' + (e.data[0] * e.data[1]);
+  //console.log('Posting message back to main script');
+  //postMessage(workerResult);
 }

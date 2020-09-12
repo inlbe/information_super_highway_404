@@ -156,44 +156,6 @@ class TextSprite extends Sprite
   }
 }
 
-class MoveStopMoveTextSprite extends TextSprite
-{
-  constructor(game, x, y, text, fillStyle, fontSize, startTime = 1, endTime = 1, stopTime = 1)
-  {
-    super(game, x, y, text, fillStyle, fontSize);
-    let moveTween1 = game.gameWorld.addTween(new MoveTween(this, startTime, 0, Tween.CONST_SPEED,
-        new Point(0, 0),
-        new Point(0, 0)));
-    let moveTween2 = game.gameWorld.addTween(new MoveTween(this, endTime, 0, Tween.CONST_SPEED,
-        new Point(0, 0),
-        new Point(0, 0)));
-    let stopTimer = new Timer(stopTime);
-    this.onComplete = new Signal(game, this);
-    moveTween1.onComplete = () =>
-    {
-      stopTimer.reset(true);
-    }
-    stopTimer.onComplete = () =>
-    {
-      moveTween2.active = true;
-    }
-    moveTween2.onComplete = () =>
-    {
-      this.onComplete.dispatch();
-    }
-    game.gameWorld.timers.push(stopTimer);
-    this.setStops = (beginning, middle, end) =>
-    {
-      moveTween1.setStartEnd(beginning, middle);
-      moveTween2.setStartEnd(middle, end);
-    }
-    this.start = () =>
-    {
-      moveTween1.active = true;
-    }
-  }
-}
-
 class Background extends Group
 {
   constructor(game, x, y)
@@ -237,8 +199,6 @@ class TitleGroup extends Group
     playText.position.x = (game.gameWorld.camera.width - playText.width) / 2;
     playText.position.y = game.gameWorld.camera.height - (playText.height * 2);
     this.addChild(playText);
-    let alphaTween = this.game.gameWorld.addTween(new AlphaTween(playText, 0.3, -1, Tween.CONST_SPEED, 1, 0.3));
-    alphaTween.active = true;
 
     let tile1 = ['w0', 'w1', 'w2'];
     let tile2 = ['w6', 'w6', 'w7'];
@@ -327,15 +287,12 @@ class GameGroup extends Group
   constructor(game, x, y)
   {
     super(game, x, y);
-    let gridSquarePool = new GridSquarePool();
-    let gridPathPool = new GridPathPool();
-    let gridPathFinderPool = new GridPathFinderPool();
     let collisionGrid = new CollisionGrid(game, 100, 100);
     game.gameWorld.collisionGrid = collisionGrid;
     this.isoMap = new IsoTilemap(game);
     this.addChild(this.isoMap);
     game.gameWorld.isoTilemaps.push(this.isoMap);
-    let mazeCreator = new MazeCreator(gridSquarePool, gridPathPool, gridPathFinderPool);
+    let mazeCreator = new MazeCreator();
     let playerSpritePool = new PlayerSpritePool();
     let enemySpritePool = new EnemySpritePool();
     let pagePool = new PagePool();
@@ -350,11 +307,7 @@ class GameGroup extends Group
     let mapTimer = new Timer(0.1);
     game.gameWorld.timers.push(mapTimer);
     let onMapAllVisible = new Signal(game, this);
-
-    let levelCompleteText = new MoveStopMoveTextSprite(game, 0, 0, "Level Complete!", undefined, game.tileSize * 2);
-
-    let tryAgainText = new MoveStopMoveTextSprite(game, 0, 0, "Try Again!", undefined, game.tileSize * 2);
-
+    let onNewPath = new Signal(game, this);
     onMapAllVisible.addListener(this, () =>
     {
       enemySprites.forEach((enemySprite) =>
@@ -386,16 +339,6 @@ class GameGroup extends Group
         mapTimer.reset(true);
       }
     }
-    tryAgainText.onComplete.addListener(this,() =>
-    {
-      resetLevel();
-      this.newLevel(levels[currentLevel]);
-    });
-    levelCompleteText.onComplete.addListener(this, () =>
-    {
-      resetLevel();
-      this.newLevel(levels[currentLevel]);
-    });
 
     let levels =
     [
@@ -468,109 +411,140 @@ class GameGroup extends Group
       miniMapPool.free(miniMap);
       this.removeChild(miniMap);
       miniMap = null;
-      this.removeChild(levelCompleteText);
-      this.removeChild(tryAgainText);
+      onNewPath.listeners.length = 0;
     }
     this.newLevel = (levelObj = levels[currentLevel]) =>
     {
-      this.game.gameWorld.stop();
-      let fillGrid = mazeCreator.makeMaze(levelObj.size, levelObj.size, levelObj.chambers);
-      let obj = generateMapData(['w0', 'w1', 'w2', 'w3'], fillGrid, 3);
-      this.isoMap.createTileSprites(obj.mapData, game.gameWorld.collisionGrid);
-      this.isoMap.setWallSpriteCollisionGroups(PlayerSprite.CollisionID);
-      this.isoMap.wallSprites.forEach((spriteArray) =>
+      let resolveMaze = () =>
       {
-        spriteArray.forEach((sprite) =>
+        return new Promise((resolve) =>
         {
-          if(sprite.visible)
+          mazeCreator.onMazeGenerated = (fillGrid) =>
           {
-            sprite.setVisible(false);
-            invisibleWallSprites.push(sprite);
+            resolve(fillGrid);
+          }
+          mazeCreator.makeMaze(levelObj.size, levelObj.size, levelObj.chambers);
+        });
+      };
+      let resolveEnemys = (workers, ends, mapFillGrid) =>
+      {
+        return new Promise((resolve) =>
+        {
+          onNewPath.addListener(this, (enemy, worker) =>
+          {
+            enemySprites.push(enemy);
+            game.gameWorld.collisionGrid.addSprite(enemy);
+            this.isoMap.addDynamicIsoChild(enemy);
+            pavedEnemys ++;
+            if(pavedEnemys < levelObj.enemys)
+            {
+              enemySpritePool.obtain({game: game, x: 0, y: 0, ends: ends,
+                  mapFillGrid: mapFillGrid, worker:worker, onNewPath: onNewPath});
+            }
+            else
+            {
+              resolve();
+            }
+          });
+          let pavedEnemys = 0;
+          workers.forEach((worker) =>
+          {
+            enemySpritePool.obtain({game: game, x: 0, y: 0, ends: ends,
+                mapFillGrid: mapFillGrid, worker:worker, onNewPath: onNewPath});
+          });
+        });
+      };
+
+      let asyncNewLevel = async () =>
+      {
+        this.game.gameWorld.stop();
+        let workers = [];
+        let threads = window.navigator.hardwareConcurrency > levelObj.enemys ? levelObj.enemys : window.navigator.hardwareConcurrency;
+        for(let i = 0; i < threads; i++)
+        {
+          workers.push(new Worker('js_webworker_version/WebWorkerTest.js'))
+        }
+        let fillGrid = await resolveMaze();
+        let obj = generateMapData(['w0', 'w1', 'w2', 'w3'], fillGrid, 3);
+        this.isoMap.createTileSprites(obj.mapData, game.gameWorld.collisionGrid);
+        this.isoMap.setWallSpriteCollisionGroups(PlayerSprite.CollisionID);
+        this.isoMap.wallSprites.forEach((spriteArray) =>
+        {
+          spriteArray.forEach((sprite) =>
+          {
+            if(sprite.visible)
+            {
+              sprite.setVisible(false);
+              invisibleWallSprites.push(sprite);
+            }
+          });
+        });
+        pickAmount = Math.floor(pickProportion * invisibleWallSprites.length);
+        mapTimer.reset(true);
+        let mapFillGrid = obj.mapFillGrid;
+        let ends = [];
+        mapFillGrid.forEach((obj, x, y) =>
+        {
+          if(!obj.filled)
+          {
+            ends.push(new Point(x, y));
           }
         });
-      });
-      pickAmount = Math.floor(pickProportion * invisibleWallSprites.length);
-      mapTimer.reset(true);
-      let mapFillGrid = obj.mapFillGrid;
-      let ends = [];
-      mapFillGrid.forEach((obj, x, y) =>
-      {
-        if(!obj.filled)
+        let ranEnd = MathsFunctions.RandomPick(ends);
+        player = playerSpritePool.obtain({game: game, x: ranEnd.x * game.tileSize,
+            y: (ranEnd.y * game.tileSize), mapFillGrid: mapFillGrid});
+        player.onPickedUpPage.addListener(this,(page) =>
         {
-          ends.push(new Point(x, y));
-        }
-      });
-      let ranEnd = MathsFunctions.RandomPick(ends);
-      player = playerSpritePool.obtain({game: game, x: ranEnd.x * game.tileSize,
-          y: (ranEnd.y * game.tileSize), mapFillGrid: mapFillGrid});
-      player.onPickedUpPage.addListener(this,(page) =>
-      {
-
-        miniMap.doPickUpPage(page);
-        page.setVisible(false);
-        page.active = false;
-        if(!pageSprites.some((pageSprite) =>
-        {
-          return(pageSprite.visible)
-        }))
-        {
-          if(currentLevel < levels.length - 1)
+          miniMap.doPickUpPage(page);
+          page.setVisible(false);
+          page.active = false;
+          if(!pageSprites.some((pageSprite) =>
           {
-            currentLevel ++;
-          }
-          else
+            return(pageSprite.visible)
+          }))
           {
-            currentLevel = 0;
+            if(currentLevel < levels.length - 1)
+            {
+              currentLevel ++;
+            }
+            else
+            {
+              currentLevel = 0;
+            }
+            resetLevel();
+            this.newLevel(levels[currentLevel]);
           }
-          this.addChild(levelCompleteText);
-          levelCompleteText.setStops(
-              new Point(game.gameWorld.camera.position.x + game.gameWorld.camera.width,
-              game.gameWorld.camera.position.y + ((game.gameWorld.camera.height - levelCompleteText.height) / 2)),
-              new Point(game.gameWorld.camera.position.x + ((game.gameWorld.camera.width - levelCompleteText.width) / 2),
-              game.gameWorld.camera.position.y + ((game.gameWorld.camera.height - levelCompleteText.height) / 2)),
-              new Point(game.gameWorld.camera.position.x - levelCompleteText.width,
-              game.gameWorld.camera.position.y + ((game.gameWorld.camera.height - levelCompleteText.height) / 2)))
-          levelCompleteText.start();
-          player.setLevelComplete();
+        });
+        player.onCollidedWithEnemy.addListener(this, () =>
+        {
+          resetLevel();
+          this.newLevel(levels[currentLevel]);
+        });
+        game.gameWorld.collisionGrid.addSprite(player);
+        await resolveEnemys(workers, ends, mapFillGrid);
+        workers.forEach((worker) =>
+        {
+          worker.terminate();
+        });
+        workers.length = 0;
+        let endsClone = [...ends];
+        for(let i = 0; i < levelObj.pages; i++)
+        {
+          let endIndex = MathsFunctions.RandomInt(0, endsClone.length);
+          let end = endsClone[endIndex];
+          let page = pagePool.obtain({game: game, xGrid: end.x, yGrid: end.y});
+          pageSprites.push(page);
+          endsClone.splice(endIndex, 1);
+          game.gameWorld.collisionGrid.addSprite(page);
+          this.isoMap.addDynamicIsoChild(page);
         }
-      });
-      player.onCollidedWithEnemy.addListener(this, () =>
-      {
-        this.addChild(tryAgainText);
-        tryAgainText.setStops(
-            new Point(game.gameWorld.camera.position.x + game.gameWorld.camera.width,
-            game.gameWorld.camera.position.y + ((game.gameWorld.camera.height - tryAgainText.height) / 2)),
-            new Point(game.gameWorld.camera.position.x + ((game.gameWorld.camera.width - tryAgainText.width) / 2),
-            game.gameWorld.camera.position.y + ((game.gameWorld.camera.height - tryAgainText.height) / 2)),
-            new Point(game.gameWorld.camera.position.x - tryAgainText.width,
-            game.gameWorld.camera.position.y + ((game.gameWorld.camera.height - tryAgainText.height) / 2)))
-        tryAgainText.start();
-      });
-      game.gameWorld.collisionGrid.addSprite(player);
-      for(let i = 0; i < levelObj.enemys; i++)
-      {
-        let enemy = enemySpritePool.obtain({game: game, x: 0, y: 0, ends: ends,
-            mapFillGrid: mapFillGrid});
-        enemySprites.push(enemy);
-        game.gameWorld.collisionGrid.addSprite(enemy);
-        this.isoMap.addDynamicIsoChild(enemy);
+        miniMap = miniMapPool.obtain({game: game, x: 0, y: 0, mapFillGrid: mapFillGrid,
+            pageSprites: pageSprites, player: player});
+        this.addChild(miniMap);
+        this.isoMap.addDynamicIsoChild(player);
+        this.game.gameWorld.start();
       }
-      let endsClone = [...ends];
-      for(let i = 0; i < levelObj.pages; i++)
-      {
-        let endIndex = MathsFunctions.RandomInt(0, endsClone.length);
-        let end = endsClone[endIndex];
-        let page = pagePool.obtain({game: game, xGrid: end.x, yGrid: end.y});
-        pageSprites.push(page);
-        endsClone.splice(endIndex, 1);
-        game.gameWorld.collisionGrid.addSprite(page);
-        this.isoMap.addDynamicIsoChild(page);
-      }
-      miniMap = miniMapPool.obtain({game: game, x: 0, y: 0, mapFillGrid: mapFillGrid,
-          pageSprites: pageSprites, player: player});
-      this.addChild(miniMap);
-      this.isoMap.addDynamicIsoChild(player);
-      this.game.gameWorld.start();
+      asyncNewLevel();
     }
   }
 }
@@ -601,24 +575,13 @@ class Page extends BaseIsoSprite
     this.position.x = (xGrid * game.tileSize) + ((game.tileSize - this.width) / 2);
     this.position.y = (yGrid * game.tileSize) + ((game.tileSize - this.height) / 2);
     this.solid = false;
-    this.startScalePoint = new Point(1, 1);
-    this.endScalePoint = new Point(0.75, 0.75);
-    this.scaleTween = game.gameWorld.addTween(new ScaleTween(this, 0.5, -1, Tween.CONST_ACCEL,
-        this.startScalePoint, this.endScalePoint));
-    this.scaleTween.active = true;
-  }
-  reset()
-  {
-    super.reset();
-    this.scaleTween.active = false;
-    this.scaleTween.reInit();
+
   }
   set(objectArgs)
   {
     super.set(objectArgs);
     this.position.x = (objectArgs.xGrid * this.game.tileSize) + ((this.game.tileSize - this.width) / 2);
     this.position.y = (objectArgs.yGrid * this.game.tileSize) + ((this.game.tileSize - this.height) / 2);
-    this.scaleTween.active = true;
   }
 }
 
@@ -644,7 +607,6 @@ class PlayerSprite extends BaseIsoSprite
     let invincible = true;
     this.processKeys = false;
     this.isoZ = 1;
-    let alive = true;
     alphaTween.onComplete = () =>
     {
       invincible = false;
@@ -652,13 +614,6 @@ class PlayerSprite extends BaseIsoSprite
     scaleTween.onComplete = () =>
     {
       this.onCollidedWithEnemy.dispatch();
-    }
-    this.setLevelComplete = () =>
-    {
-      invincible = true;
-      this.speed.x = 0;
-      this.speed.y = 0;
-      this.active = false;
     }
     this.onSet.addListener(this, () =>
     {
@@ -670,8 +625,6 @@ class PlayerSprite extends BaseIsoSprite
       this.keyStates.right = false;
       this.keyStates.up = false;
       this.keyStates.down = false;
-      alive = true;
-      this.active = true;
     });
     this.startFlashing = () =>
     {
@@ -683,13 +636,12 @@ class PlayerSprite extends BaseIsoSprite
     this.mapSize.y = mapFillGrid.yDim * (game.tileSize + (game.isometricProperties.yOffsetPerTile + 1));
     this.onCollide.addListener(this, (sprite, collisionSprite) =>
     {
-      if(alive && !invincible && !scaleTween.active &&
+      if(!invincible && !scaleTween.active &&
           collisionSprite.constructor.CollisionID === EnemySprite.CollisionID)
       {
         scaleTween.active = true;
-        alive = false;
       }
-      else if(collisionSprite.constructor.CollisionID === Page.CollisionID && alive)
+      else if(collisionSprite.constructor.CollisionID === Page.CollisionID)
       {
         this.onPickedUpPage.dispatch(collisionSprite);
       }
@@ -826,29 +778,41 @@ class EnemySprite extends BaseIsoSprite
   {
     return 1 << 2;
   }
-  constructor(game, x, y, ends, mapFillGrid)
+  constructor(game, x, y, ends, mapFillGrid, worker, onNewPath)
   {
     super(game,['p1'], x, y);
-    let gridSquarePool = new GridSquarePool();
-    let gridPathPool = new GridPathPool();
-    let gridPathFinderPool = new GridPathFinderPool();
     this.isoZ = 1;
     let reversing = false;
     let _ends = ends;
     let _mapFillGrid = mapFillGrid;
-    let gridPathFinder = null;
+    let _worker = worker;
+    let _onNewPath = onNewPath;
 
-    this.onSet.addListener(this, (ends, mapFillGrid) =>
+    this.onSet.addListener(this, (ends, mapFillGrid, worker, onNewPath) =>
     {
       _ends = ends;
       _mapFillGrid = mapFillGrid;
+      _worker = worker;
+      _onNewPath = onNewPath;
       navIndex = 0;
       oldDir = null;
       reversing = false;
       newPath();
     });
 
-    let newPath = () =>
+    let resolveWorker = (fillGrid, start, end) =>
+    {
+      return new Promise((resolve) =>
+      {
+        _worker.onmessage = (e) =>
+        {
+          resolve(e.data);
+        }
+        _worker.postMessage([fillGrid, start, end]);
+      });
+    };
+
+    let newPath = async () =>
     {
       let clonedEnds = [..._ends];
       let startPoint = null;
@@ -877,15 +841,12 @@ class EnemySprite extends BaseIsoSprite
       startPoint = clonedEnds[startIndex];
       clonedEnds.splice(startIndex, 1);
       let endPoint = MathsFunctions.RandomPick(clonedEnds);
-      gridPathFinder = gridPathFinderPool.obtain({fillGrid: _mapFillGrid, start: startPoint,
-          end: endPoint, gridPaths: null, gridSquarePool: gridSquarePool,
-          gridPathPool: gridPathPool});
-      let obj = gridPathFinder.process();
-      currentPath = JSON.parse(JSON.stringify(gridPathFinder.gridPaths[obj.pathIndex]));
-      gridPathFinderPool.free(gridPathFinder);
+
+      currentPath = await resolveWorker(_mapFillGrid, startPoint, endPoint);
       pos = currentPath.gridSquares[navIndex].position;
       this.position.x = (pos.x * game.tileSize) + ((game.tileSize - this.width) / 2);
       this.position.y = (pos.y * game.tileSize) + ((game.tileSize - this.height) / 2);
+      _onNewPath.dispatch(this, _worker);
     }
     let currentPath = null
     let navIndex = 0;
@@ -959,7 +920,8 @@ class EnemySprite extends BaseIsoSprite
   set(objectArgs)
   {
     super.set(objectArgs);
-    this.onSet.dispatch(objectArgs.ends, objectArgs.mapFillGrid);
+    this.onSet.dispatch(objectArgs.ends, objectArgs.mapFillGrid,
+        objectArgs.worker, objectArgs.onNewPath);
   }
 }
 
@@ -968,7 +930,7 @@ class MiniMap extends Group
   constructor(game, x, y, mapFillGrid, pageSprites, player)
   {
     super(game, x, y)
-    let wallsLayer = new Sprite(game, Sprite.Type.MY_SHAPE, null, 0, 0, true);
+    let wallsLayer = new Sprite(game, Sprite.Type.MY_SHAPE, null, 0, 0, true/*, false*/);
     wallsLayer.frames.length = 0;
     this.addChild(wallsLayer);
     let miniMapPagesLayer = new Group(game, 0, 0);
@@ -1260,7 +1222,8 @@ class EnemySpritePool extends Pool
   {
     return new EnemySprite(objectArgs.game,
         objectArgs.x, objectArgs.y, objectArgs.ends,
-        objectArgs.mapFillGrid);
+        objectArgs.mapFillGrid, objectArgs.worker,
+        objectArgs.onNewPath);
   }
 }
 
@@ -1279,21 +1242,16 @@ class MiniMapPool extends Pool
   }
 }
 //got this off stackoverflow
-/*
 var win = window,
     doc = document,
     docElem = doc.documentElement,
     body = doc.getElementsByTagName('body')[0],
     x = win.innerWidth || docElem.clientWidth || body.clientWidth,
     y = win.innerHeight|| docElem.clientHeight|| body.clientHeight;
-*/
 
 let ang = Math.atan2(3, 4);
 let hyp = 30;
 let tileSize = 64
-let width = 1280;
-let height = 600;
-
-let myGame = new MyGame(width / tileSize, height / tileSize, tileSize, {xOffsetPerTile: -Math.cos(ang) * hyp,
+let myGame = new MyGame(x / tileSize, y / tileSize, tileSize, {xOffsetPerTile: -Math.cos(ang) * hyp,
     yOffsetPerTile: -Math.sin(ang) * hyp, ang: Math.atan(23/12)});
 myGame.preload();

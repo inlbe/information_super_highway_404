@@ -1,13 +1,12 @@
 class MazeCreator
 {
-  constructor(gridSquarePool, gridPathPool, gridPathFinderPool)
+  constructor()
   {
-    this.gridSquarePool = gridSquarePool;
-    this.gridPathPool = gridPathPool;
-    this.gridPathFinderPool = gridPathFinderPool;
     this.fillGrid = null;
     this.chamberSize = 3;
     this.chamberEntrances = [];
+    this.onMazeGenerated = null;
+
   }
   _doChamberPoints(chambers, gridPoints)
   {
@@ -82,32 +81,54 @@ class MazeCreator
   }
   makeMaze(xDim, yDim, chambers = 0)
   {
-    this.fillGrid = new FillGrid(xDim, yDim);
-    let gridPoints = [];
-    let gridPointsCopy = [];
-    let joinablePoints = [];
-    for(let x = 0; x < this.fillGrid.xDim; x ++)
+    let myWorker = new Worker('js_webworker_version/WebWorkerTest.js');
+    let resolveWorker = (fillGrid, start, end) =>
     {
-      for(let y = 0; y < this.fillGrid.yDim; y++)
+      return new Promise((resolve) =>
       {
-        gridPoints.push(new Point(x, y));
+        myWorker.onmessage = (e) =>
+        {
+          resolve(e.data);
+        }
+        myWorker.postMessage([fillGrid, start, end]);
+      });
+    };
+    let awaitFunc = async (fillGrid, start, end) =>
+    {
+      do
+      {
+        var path = await resolveWorker(fillGrid, start, end);
+      } while (!doPath(path));
+      myWorker.terminate();
+      this.chamberEntrances.length = 0;
+      chamberPoints.forEach((chamberPoint) =>
+      {
+        let ranSide = this.fillGrid.directionObj.directions[MathsFunctions.RandomIntInclusive(0, Direction.Directions.S - 1)].point;
+        let openSideIndex = ArrayFunctions.FindObjectIndex(this.fillGrid.directionObj.directions, true, (item) =>
+        {
+          let found = false;
+          if(item.point.x === ranSide.x * -1 && item.point.y === ranSide.y * -1)
+          {
+            found = true;
+          }
+          return found;
+        });
+        let xOffset = (Math.floor(this.chamberSize / 2) + 1) * ranSide.x;
+        let yOffest = (Math.floor(this.chamberSize / 2) + 1) * ranSide.y;
+        this.chamberEntrances.push(new Point(chamberPoint.x + xOffset, chamberPoint.y + yOffest));
+        this.fillGrid.grid[chamberPoint.x + xOffset]
+            [chamberPoint.y + yOffest].enclosed[openSideIndex] = false;
+      });
+      if(this.onMazeGenerated)
+      {
+        this.onMazeGenerated(this.fillGrid);
       }
-    }
-    let chamberPoints = this._doChamberPoints(chambers, gridPoints);
-    let ranPoint = MathsFunctions.RandomPick(gridPoints);
-    let start = new Point().setTo(ranPoint);
-    ranPoint = MathsFunctions.RandomPick(gridPoints);
-    let end = new Point().setTo(ranPoint);
-    let done = false;
-    do
+    };
+    let doPath = (gridPath) =>
     {
-      let gridPathFinder = this.gridPathFinderPool.obtain({fillGrid: this.fillGrid, start: start,
-          end: end, gridPaths: null, gridSquarePool: this.gridSquarePool,
-          gridPathPool: this.gridPathPool});
-      let obj = gridPathFinder.process();
-      if(obj.pathActive)
+      let done = false;
+      if(gridPath)
       {
-        let gridPath = gridPathFinder.gridPaths[obj.pathIndex];
         let prevDir = Direction.Directions.NONE;
         gridPath.gridSquares.forEach((gridSquare, index) =>
         {
@@ -144,6 +165,7 @@ class MazeCreator
             start.setTo(MathsFunctions.RandomPick(joinablePoints));
             this._removePoint(joinablePoints, start);
           } while (this._boxedIn(start));
+
           gridPointsCopy = [...gridPoints];
           end.setTo(MathsFunctions.RandomPick(gridPointsCopy));
           this._removePoint(gridPointsCopy, end);
@@ -160,38 +182,38 @@ class MazeCreator
       }
       else
       {
+        //start.setTo(MathsFunctions.RandomPick(joinablePoints));
+        //this._removePoint(joinablePoints, start);
+
         do
         {
           start.setTo(MathsFunctions.RandomPick(joinablePoints));
           this._removePoint(joinablePoints, start);
         } while (this._boxedIn(start));
+
         gridPointsCopy = [...gridPoints];
         end.setTo(MathsFunctions.RandomPick(gridPointsCopy));
         this._removePoint(gridPointsCopy, end);
       }
-      this.gridPathFinderPool.free(gridPathFinder);
-    }
-    while(!done)
-    this.chamberEntrances.length = 0;
-    chamberPoints.forEach((chamberPoint) =>
+      return done;
+    };
+    this.fillGrid = new FillGrid(xDim, yDim);
+    let gridPoints = [];
+    let gridPointsCopy = [];
+    let joinablePoints = [];
+    for(let x = 0; x < this.fillGrid.xDim; x ++)
     {
-      let ranSide = this.fillGrid.directionObj.directions[MathsFunctions.RandomIntInclusive(0, Direction.Directions.S - 1)].point;
-      let openSideIndex = ArrayFunctions.FindObjectIndex(this.fillGrid.directionObj.directions, true, (item) =>
+      for(let y = 0; y < this.fillGrid.yDim; y++)
       {
-        let found = false;
-        if(item.point.x === ranSide.x * -1 && item.point.y === ranSide.y * -1)
-        {
-          found = true;
-        }
-        return found;
-      });
-      let xOffset = (Math.floor(this.chamberSize / 2) + 1) * ranSide.x;
-      let yOffest = (Math.floor(this.chamberSize / 2) + 1) * ranSide.y;
-      this.chamberEntrances.push(new Point(chamberPoint.x + xOffset, chamberPoint.y + yOffest));
-      this.fillGrid.grid[chamberPoint.x + xOffset]
-          [chamberPoint.y + yOffest].enclosed[openSideIndex] = false;
-    });
-    return this.fillGrid;
+        gridPoints.push(new Point(x, y));
+      }
+    }
+    let chamberPoints = this._doChamberPoints(chambers, gridPoints);
+    let ranPoint = MathsFunctions.RandomPick(gridPoints);
+    let start = new Point().setTo(ranPoint);
+    ranPoint = MathsFunctions.RandomPick(gridPoints);
+    let end = new Point().setTo(ranPoint);
+    awaitFunc(this.fillGrid, start, end);
   }
   _boxedIn(point)
   {
