@@ -400,10 +400,12 @@ class GameGroup extends Group
     let levels =
     [
       new Level(10, 5, 5, 0),
-      new Level(15, 7, 8, 0),
-      new Level(50, 10, 10, 1),
-      new Level(70, 13, 14, 2),
-      new Level(100, 16, 20, 3)
+      new Level(20, 10, 6, 0),
+      new Level(30, 15, 7, 0),
+      new Level(40, 20, 8, 0),
+      new Level(50, 25, 9, 1),
+      new Level(60, 30, 10, 1),
+      new Level(70, 35, 11, 1),
     ];
 
     let currentLevel = 0;
