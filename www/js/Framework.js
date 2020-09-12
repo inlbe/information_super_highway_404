@@ -1365,7 +1365,6 @@ class Tween
           {
             this.onReachedStart();
           }
-
         }
       }
     }

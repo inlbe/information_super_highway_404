@@ -151,7 +151,7 @@ class TextSprite extends Sprite
 {
   constructor(game, x, y, text, fillStyle = MyGame.Palette.Green1, fontSize = 32)
   {
-    super(game, Sprite.Type.TEXT, {font: 'bold ' + fontSize + 'px serif', text: text, fillStyle: fillStyle},
+    super(game, Sprite.Type.TEXT, {font: 'bold ' + fontSize + 'px Courier', text: text, fillStyle: fillStyle},
     x, y, true);
   }
 }
